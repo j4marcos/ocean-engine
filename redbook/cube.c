@@ -58,7 +58,7 @@ void putCube1()
    glPushMatrix();
    glTranslatef(0, 0, 0.0);
    glScalef(1.0, 1.0, 1.0); /* modeling transformation */
-   // glutWireCube(1.0);]
+   // glutWireCube(1.0);
    glColor3f(1, 0, 0);
    glutSolidCube(1.0);
    glPopMatrix();
