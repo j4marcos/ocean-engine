@@ -1,1 +1,0 @@
-/usr/bin/c++  -Wall -Wextra -g -O0 -Wl,--dependency-file=CMakeFiles/ocean_engine.dir/link.d CMakeFiles/ocean_engine.dir/src/main.cpp.o -o ocean_engine  /usr/lib64/libGL.so /usr/lib64/libGLU.so /usr/lib64/libglut.so -lGLU -lm
