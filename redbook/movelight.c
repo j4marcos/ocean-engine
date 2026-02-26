@@ -81,6 +81,7 @@ void display(void)
    gluLookAt (0.0, 0.0, 5.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
 
    glPushMatrix ();
+   glTranslated(0.0, 1.5, 0.0);
    glRotated ((GLdouble) spin, 1.0, 0.0, 0.0);
    glLightfv (GL_LIGHT0, GL_POSITION, position);
 

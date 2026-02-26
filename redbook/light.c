@@ -48,70 +48,91 @@
  *  and depth buffer.
  */
 
-void addLight1(void)
+static int spin = 0;
+static int lights_on = 1;
+
+static void update_spin(void)
 {
-   // declara a cor (R,G,B,A) e posicao (x,y,z,w) da fonte de luz
-   // GLfloat light1_ambient[] = {0.2, 0.2, 0.2, 1.0};
-   GLfloat light1_diffuse[] = {0.0, 1.0, 0.0, 1.0};
-   GLfloat light1_specular[] = {0.0, 1.0, 0.0, 1.0};
-   GLfloat light1_position[] = {-2.0, 1.0, 1.0, 1.0};
-   GLfloat spot_direction[] = {2.0, 0.0, -1.0};
-   // atribui os valores de reflexao e posicao
-   // glLightfv(GL_LIGHT1, GL_AMBIENT, light1_ambient);
-   glLightfv(GL_LIGHT1, GL_DIFFUSE, light1_diffuse);
-   glLightfv(GL_LIGHT1, GL_SPECULAR, light1_specular);
-   glLightfv(GL_LIGHT1, GL_POSITION, light1_position);
-   // atribui as atenuacoes
-   glLightf(GL_LIGHT1, GL_CONSTANT_ATTENUATION, 1.5);
-   glLightf(GL_LIGHT1, GL_LINEAR_ATTENUATION, 0.5);
-   glLightf(GL_LIGHT1, GL_QUADRATIC_ATTENUATION, 0.2);
-   // atribui as caracteristicas da luz tipo lanterna
-   glLightf(GL_LIGHT1, GL_SPOT_CUTOFF, 45.0);
-   glLightfv(GL_LIGHT1, GL_SPOT_DIRECTION, spot_direction);
-   glLightf(GL_LIGHT1, GL_SPOT_EXPONENT, 2.0);
-   // habilita a luz 1
-   glEnable(GL_LIGHT1);
+   spin = (spin + 30) % 360;
 }
 
 void init(void)
 {
-   // Material branco/cinza para refletir todas as cores
    GLfloat mat_specular[] = {1.0, 1.0, 1.0, 1.0};
    GLfloat mat_diffuse[] = {0.8, 0.8, 0.8, 1.0};
    GLfloat mat_shininess[] = {100.0};
-   
-   // LIGHT0 - Luz vermelha da direita
-   GLfloat light0_diffuse[] = {1.0, 0.0, 0.0, 1.0};
-   GLfloat light0_specular[] = {1.0, 0.0, 0.0, 1.0};
-   GLfloat light_position[] = {1.0, 1.0, 1.0, 1.0};
+
+   GLfloat red_diffuse[] = {1.0, 0.0, 0.0, 1.0};
+   GLfloat red_specular[] = {1.0, 0.0, 0.0, 1.0};
+   GLfloat green_diffuse[] = {0.0, 1.0, 0.0, 1.0};
+   GLfloat green_specular[] = {0.0, 1.0, 0.0, 1.0};
+   GLfloat blue_diffuse[] = {0.0, 0.0, 1.0, 1.0};
+   GLfloat blue_specular[] = {0.0, 0.0, 1.0, 1.0};
 
    glClearColor(0.0, 0.0, 0.0, 0.0);
    glShadeModel(GL_SMOOTH);
 
    glMaterialfv(GL_FRONT, GL_SPECULAR, mat_specular);
-   glMaterialfv(GL_FRONT, GL_DIFFUSE, mat_diffuse);   
+   glMaterialfv(GL_FRONT, GL_DIFFUSE, mat_diffuse);
    glMaterialfv(GL_FRONT, GL_SHININESS, mat_shininess);
-   
-   glLightfv(GL_LIGHT0, GL_DIFFUSE, light0_diffuse);
-   glLightfv(GL_LIGHT0, GL_SPECULAR, light0_specular);
-   glLightfv(GL_LIGHT0, GL_POSITION, light_position);
+
+   glLightfv(GL_LIGHT0, GL_DIFFUSE, red_diffuse);
+   glLightfv(GL_LIGHT0, GL_SPECULAR, red_specular);
+
+   glLightfv(GL_LIGHT1, GL_DIFFUSE, green_diffuse);
+   glLightfv(GL_LIGHT1, GL_SPECULAR, green_specular);
+
+   glLightfv(GL_LIGHT2, GL_DIFFUSE, blue_diffuse);
+   glLightfv(GL_LIGHT2, GL_SPECULAR, blue_specular);
 
    glEnable(GL_LIGHTING);
    glEnable(GL_LIGHT0);
+   glEnable(GL_LIGHT1);
+   glEnable(GL_LIGHT2);
    glEnable(GL_DEPTH_TEST);
-
-      // declara a cor (R,G,B,A) e posicao (x,y,z,w) da fonte de luz
-
-   
-   addLight1();
-
 }
 
 void display(void)
 {
+   GLfloat red_position[] = {0.0, 2.0, 0.0, 1.0};
+   GLfloat green_position[] = {2.0, 0.0, 0.0, 1.0};
+   GLfloat blue_position[] = {-2.0, 0.0, 0.0, 1.0};
+
    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-   glutSolidSphere(1.0, 20, 16);
-   glFlush();
+   glPushMatrix();
+   gluLookAt(0.0, 0.0, 5.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
+
+   if (lights_on)
+   {
+      glEnable(GL_LIGHT0);
+      glEnable(GL_LIGHT1);
+      glEnable(GL_LIGHT2);
+   }
+   else
+   {
+      glDisable(GL_LIGHT0);
+      glDisable(GL_LIGHT1);
+      glDisable(GL_LIGHT2);
+   }
+
+   glPushMatrix();
+   glRotated((GLdouble)spin, 1.0, 0.0, 0.0);
+   glLightfv(GL_LIGHT0, GL_POSITION, red_position);
+   glPopMatrix();
+
+   glPushMatrix();
+   glRotated((GLdouble)spin, 0.0, 1.0, 0.0);
+   glLightfv(GL_LIGHT1, GL_POSITION, green_position);
+   glPopMatrix();
+
+   glPushMatrix();
+   glRotated((GLdouble)spin, 0.0, 0.0, 1.0);
+   glLightfv(GL_LIGHT2, GL_POSITION, blue_position);
+   glPopMatrix();
+
+   glutSolidSphere(1.0, 40, 32);
+   glPopMatrix();
+   glutSwapBuffers();
 }
 
 void reshape(int w, int h)
@@ -119,22 +140,51 @@ void reshape(int w, int h)
    glViewport(0, 0, (GLsizei)w, (GLsizei)h);
    glMatrixMode(GL_PROJECTION);
    glLoadIdentity();
-   if (w <= h)
-      glOrtho(-1.5, 1.5, -1.5 * (GLfloat)h / (GLfloat)w,
-              1.5 * (GLfloat)h / (GLfloat)w, -10.0, 10.0);
-   else
-      glOrtho(-1.5 * (GLfloat)w / (GLfloat)h,
-              1.5 * (GLfloat)w / (GLfloat)h, -1.5, 1.5, -10.0, 10.0);
+   gluPerspective(40.0, (GLfloat)w / (GLfloat)h, 1.0, 20.0);
    glMatrixMode(GL_MODELVIEW);
    glLoadIdentity();
 }
 
+void mouse(int button, int state, int x, int y)
+{
+   (void)x;
+   (void)y;
+
+   switch (button)
+   {
+   case GLUT_LEFT_BUTTON:
+      if (state == GLUT_DOWN)
+      {
+         update_spin();
+         glutPostRedisplay();
+      }
+      break;
+   default:
+      break;
+   }
+}
+
 void keyboard(unsigned char key, int x, int y)
 {
+   (void)x;
+   (void)y;
+
    switch (key)
    {
    case 27:
       exit(0);
+      break;
+   case 'l':
+   case 'L':
+      lights_on = !lights_on;
+      glutPostRedisplay();
+      break;
+   case 'r':
+   case 'R':
+      update_spin();
+      glutPostRedisplay();
+      break;
+   default:
       break;
    }
 }
@@ -142,13 +192,14 @@ void keyboard(unsigned char key, int x, int y)
 int main(int argc, char **argv)
 {
    glutInit(&argc, argv);
-   glutInitDisplayMode(GLUT_SINGLE | GLUT_RGB | GLUT_DEPTH);
+   glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
    glutInitWindowSize(500, 500);
    glutInitWindowPosition(100, 100);
    glutCreateWindow(argv[0]);
    init();
    glutDisplayFunc(display);
    glutReshapeFunc(reshape);
+   glutMouseFunc(mouse);
    glutKeyboardFunc(keyboard);
    glutMainLoop();
    return 0;
