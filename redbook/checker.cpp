@@ -117,9 +117,16 @@ void makeCheckImage(void)
 
 void init(void)
 {
+   loadTexture("oddish.png");
    glClearColor(0.0, 0.0, 0.0, 0.0);
    glShadeModel(GL_FLAT);
    glEnable(GL_DEPTH_TEST);
+
+   // Habilita geração automática de coordenadas de textura
+   glEnable(GL_TEXTURE_GEN_S);
+   glEnable(GL_TEXTURE_GEN_T);
+   glTexGeni(GL_S, GL_TEXTURE_GEN_MODE, GL_SPHERE_MAP);
+   glTexGeni(GL_T, GL_TEXTURE_GEN_MODE, GL_SPHERE_MAP);
 
    makeCheckImage();
    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
@@ -129,10 +136,12 @@ void init(void)
    glBindTexture(GL_TEXTURE_2D, texName);
 #endif
 
+auto param = false ? GL_LINEAR : GL_NEAREST;
+
    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
-   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, param);
+   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, param);
 #ifdef GL_VERSION_1_1
    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, checkImageWidth, checkImageHeight,
                 0, GL_RGBA, GL_UNSIGNED_BYTE, checkImage);
@@ -144,32 +153,39 @@ void init(void)
 
 void display(void)
 {
-   loadTexture("oddish.png");
+   
    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
    glEnable(GL_TEXTURE_2D);
-   glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_DECAL);
-#ifdef GL_VERSION_1_1
-   glBindTexture(GL_TEXTURE_2D, texName);
-#endif
+//    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_DECAL);
+// #ifdef GL_VERSION_1_1
+//    glBindTexture(GL_TEXTURE_2D, texName);
+// #endif
 
-   glBegin(GL_QUADS);
-   glTexCoord2f(0.0, 0.0);
-   glVertex3f(-2.0, -2.0, 0.0);
-   glTexCoord2f(0.0, 10.0);
-   glVertex3f(-2.0, 1.5, -5.0);
-   glTexCoord2f(10.0, 10.0);
-   glVertex3f(2.0, 1.5, -5.0);
-   glTexCoord2f(10.0, 0.0);
-   glVertex3f(2.0, -2.0, 0.0);
+   // glBegin(GL_QUADS);
+   // glTexCoord2f(0.0, 0.0);
+   // glVertex3f(-2.0, -2.0, 0.0);
+   // glTexCoord2f(0.0, 10.0);
+   // glVertex3f(-2.0, 1.5, -5.0);
+   // glTexCoord2f(10.0, 10.0);
+   // glVertex3f(2.0, 1.5, -5.0);
+   // glTexCoord2f(10.0, 0.0);
+   // glVertex3f(2.0, -2.0, 0.0);
 
-   // glTexCoord2f(0.0, 0.0); glVertex3f(1.0, -1.0, 0.0);
-   // glTexCoord2f(0.0, 1.0); glVertex3f(1.0, 1.0, 0.0);
-   // glTexCoord2f(1.0, 1.0); glVertex3f(2.41421, 1.0, -1.41421);
-   // glTexCoord2f(1.0, 0.0); glVertex3f(2.41421, -1.0, -1.41421);
-   glEnd();
+   // // glTexCoord2f(0.0, 0.0); glVertex3f(1.0, -1.0, 0.0);
+   // // glTexCoord2f(0.0, 1.0); glVertex3f(1.0, 1.0, 0.0);
+   // // glTexCoord2f(1.0, 1.0); glVertex3f(2.41421, 1.0, -1.41421);
+   // // glTexCoord2f(1.0, 0.0); glVertex3f(2.41421, -1.0, -1.41421);
+   // glEnd();
+
+      glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+   glBindTexture(GL_TEXTURE_2D, texture);
+   
+   // Define cor vermelha para áreas sem textura
+   glColor3f(1.0f, 0.0f, 0.0f);
 
    GLUquadric *quad = gluNewQuadric();
    gluQuadricTexture(quad, GL_TRUE);
+
    gluSphere(quad, 1.0, 32, 32);
 
    glFlush();
