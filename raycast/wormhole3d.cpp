@@ -35,10 +35,10 @@ struct Aabb {
 };
 
 struct Camera {
-    Vec3 pos;
-    float yaw;
-    float pitch;
-    float fovDeg;
+    Vec3 position;
+    float yawHorizontalDegree;
+    float pitchVerticalDegree;
+    float fovViewDegree;
 };
 
 static int gWindowWidth = 1280;
@@ -114,11 +114,11 @@ static Vec3 max3(const Vec3& v, const float m) {
 }
 
 static Vec3 rayForward() {
-    const float cp = std::cos(gCamera.pitch);
+    const float cp = std::cos(gCamera.pitchVerticalDegree);
     return normalize3({
-        std::sin(gCamera.yaw) * cp,
-        std::sin(gCamera.pitch),
-        -std::cos(gCamera.yaw) * cp
+        std::sin(gCamera.yawHorizontalDegree) * cp,
+        std::sin(gCamera.pitchVerticalDegree),
+        -std::cos(gCamera.yawHorizontalDegree) * cp
     });
 }
 
@@ -151,11 +151,11 @@ static Vec3 warpField(const Vec3& p) {
 }
 
 // sdf = Signed Distance Function
-static float sdfSphere(const Vec3& p, const Sphere& s) {
+static float SignedDistanceSphere(const Vec3& p, const Sphere& s) {
     return length3(sub3(p, s.center)) - s.radius;
 }
 
-static float sdfAabb(const Vec3& p, const Aabb& b) {
+static float SignedDistanceAabb(const Vec3& p, const Aabb& b) {
     const Vec3 q = sub3(abs3(sub3(p, b.center)), b.halfSize);
     const Vec3 qmax = max3(q, 0.0f);
     const float outside = length3(qmax);
@@ -163,27 +163,27 @@ static float sdfAabb(const Vec3& p, const Aabb& b) {
     return outside + inside;
 }
 
-static float sdfFloor(const Vec3& p) {
+static float SignedDistanceFloor(const Vec3& p) {
     return p.y + 1.15f;
 }
 
-static float sdfScene(const Vec3& p) {
-    float d = sdfFloor(p);
+static float SignedDistanceScene(const Vec3& p) {
+    float d = SignedDistanceFloor(p);
     for (size_t i = 0; i < gSpheres.size(); ++i) {
-        d = std::min(d, sdfSphere(p, gSpheres[i]));
+        d = std::min(d, SignedDistanceSphere(p, gSpheres[i]));
     }
     for (size_t i = 0; i < gBoxes.size(); ++i) {
-        d = std::min(d, sdfAabb(p, gBoxes[i]));
+        d = std::min(d, SignedDistanceAabb(p, gBoxes[i]));
     }
     return d;
 }
 
 static Vec3 sceneColorAt(const Vec3& p) {
-    float bestD = sdfFloor(p);
+    float bestD = SignedDistanceFloor(p);
     Vec3 color = {0.35f, 0.37f, 0.41f};
 
     for (size_t i = 0; i < gSpheres.size(); ++i) {
-        const float d = sdfSphere(p, gSpheres[i]);
+        const float d = SignedDistanceSphere(p, gSpheres[i]);
         if (d < bestD) {
             bestD = d;
             color = gSpheres[i].color;
@@ -191,7 +191,7 @@ static Vec3 sceneColorAt(const Vec3& p) {
     }
 
     for (size_t i = 0; i < gBoxes.size(); ++i) {
-        const float d = sdfAabb(p, gBoxes[i]);
+        const float d = SignedDistanceAabb(p, gBoxes[i]);
         if (d < bestD) {
             bestD = d;
             color = gBoxes[i].color;
@@ -203,9 +203,9 @@ static Vec3 sceneColorAt(const Vec3& p) {
 
 static Vec3 estimateNormal(const Vec3& p) {
     const float e = 0.01f;
-    const float dx = sdfScene({p.x + e, p.y, p.z}) - sdfScene({p.x - e, p.y, p.z});
-    const float dy = sdfScene({p.x, p.y + e, p.z}) - sdfScene({p.x, p.y - e, p.z});
-    const float dz = sdfScene({p.x, p.y, p.z + e}) - sdfScene({p.x, p.y, p.z - e});
+    const float dx = SignedDistanceScene({p.x + e, p.y, p.z}) - SignedDistanceScene({p.x - e, p.y, p.z});
+    const float dy = SignedDistanceScene({p.x, p.y + e, p.z}) - SignedDistanceScene({p.x, p.y - e, p.z});
+    const float dz = SignedDistanceScene({p.x, p.y, p.z + e}) - SignedDistanceScene({p.x, p.y, p.z - e});
     return normalize3({dx, dy, dz});
 }
 
@@ -236,14 +236,14 @@ static void rasterScene() {
 
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    gluPerspective(gCamera.fovDeg, static_cast<double>(gWindowWidth) / static_cast<double>(gWindowHeight), 0.1, 100.0);
+    gluPerspective(gCamera.fovViewDegree, static_cast<double>(gWindowWidth) / static_cast<double>(gWindowHeight), 0.1, 100.0);
 
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 
     const Vec3 f = rayForward();
-    const Vec3 target = add3(gCamera.pos, f);
-    gluLookAt(gCamera.pos.x, gCamera.pos.y, gCamera.pos.z, target.x, target.y, target.z, 0.0, 1.0, 0.0);
+    const Vec3 target = add3(gCamera.position, f);
+    gluLookAt(gCamera.position.x, gCamera.position.y, gCamera.position.z, target.x, target.y, target.z, 0.0, 1.0, 0.0);
 
     glDisable(GL_LIGHTING);
     glColor3f(0.13f, 0.16f, 0.19f);
@@ -306,7 +306,7 @@ static Vec3 skyColor(const Vec3& dir) {
 }
 
 static Vec3 traceRay(const Vec3& origin, Vec3 dir) {
-    Vec3 pos = origin;
+    Vec3 position = origin;
     const float stepLength = 0.15f;
     const float maxDist = 75.0f;
     const int maxSteps = 420;
@@ -314,14 +314,14 @@ static Vec3 traceRay(const Vec3& origin, Vec3 dir) {
     const float exitMargin = 0.04f;
 
     for (int i = 0; i < maxSteps; ++i) {
-        const Vec3 accel = warpField(pos);
+        const Vec3 accel = warpField(position);
         dir = normalize3(add3(dir, scale3(accel, stepLength * 0.85f)));
 
-        Vec3 nextPos = add3(pos, scale3(dir, stepLength));
+        Vec3 nextPos = add3(position, scale3(dir, stepLength));
 
-        const float prevDistA = length3(sub3(pos, gWormhole.holeA.center));
+        const float prevDistA = length3(sub3(position, gWormhole.holeA.center));
         const float nextDistA = length3(sub3(nextPos, gWormhole.holeA.center));
-        const float prevDistB = length3(sub3(pos, gWormhole.holeB.center));
+        const float prevDistB = length3(sub3(position, gWormhole.holeB.center));
         const float nextDistB = length3(sub3(nextPos, gWormhole.holeB.center));
 
         if (prevDistA >= gWormhole.holeA.coreRadius && nextDistA < gWormhole.holeA.coreRadius) {
@@ -330,20 +330,20 @@ static Vec3 traceRay(const Vec3& origin, Vec3 dir) {
             nextPos = teleportToOppositeSide(nextPos, gWormhole.holeB, gWormhole.holeA, exitMargin);
         }
 
-        pos = nextPos;
+        position = nextPos;
 
-        const float d = sdfScene(pos);
+        const float d = SignedDistanceScene(position);
         if (d < hitEps) {
-            const Vec3 n = estimateNormal(pos);
+            const Vec3 n = estimateNormal(position);
             const Vec3 lightDir = normalize3({0.62f, 0.74f, 0.23f});
             const float lambert = clampf(dot3(n, lightDir), 0.0f, 1.0f);
-            const Vec3 base = sceneColorAt(pos);
+            const Vec3 base = sceneColorAt(position);
             const float amb = 0.22f;
             const float shade = amb + lambert * 0.78f;
             return {base.x * shade, base.y * shade, base.z * shade};
         }
 
-        if (length3(sub3(pos, origin)) > maxDist) {
+        if (length3(sub3(position, origin)) > maxDist) {
             break;
         }
     }
@@ -360,7 +360,7 @@ static void raycastScene() {
     const Vec3 u = rayUp();
 
     const float aspect = static_cast<float>(kRaycastWidth) / static_cast<float>(kRaycastHeight);
-    const float tanHalfFov = std::tan((gCamera.fovDeg * 3.14159265359f / 180.0f) * 0.5f);
+    const float tanHalfFov = std::tan((gCamera.fovViewDegree * 3.14159265359f / 180.0f) * 0.5f);
 
     for (int y = 0; y < kRaycastHeight; ++y) {
         for (int x = 0; x < kRaycastWidth; ++x) {
@@ -368,7 +368,7 @@ static void raycastScene() {
             const float py = (1.0f - 2.0f * (static_cast<float>(y) + 0.5f) / static_cast<float>(kRaycastHeight)) * tanHalfFov;
             const Vec3 dir = normalize3(add3(f, add3(scale3(r, px), scale3(u, py))));
 
-            const Vec3 c = traceRay(gCamera.pos, dir);
+            const Vec3 c = traceRay(gCamera.position, dir);
             const int idx = (y * kRaycastWidth + x) * 3;
             gRaycastPixels[idx + 0] = static_cast<unsigned char>(clampf(c.x, 0.0f, 1.0f) * 255.0f);
             gRaycastPixels[idx + 1] = static_cast<unsigned char>(clampf(c.y, 0.0f, 1.0f) * 255.0f);
@@ -479,19 +479,19 @@ static void keyboard(const unsigned char key, const int x, const int y) {
             break;
         case 'w':
         case 'W':
-            gCamera.pos = add3(gCamera.pos, scale3(forward, moveStep));
+            gCamera.position = add3(gCamera.position, scale3(forward, moveStep));
             break;
         case 's':
         case 'S':
-            gCamera.pos = sub3(gCamera.pos, scale3(forward, moveStep));
+            gCamera.position = sub3(gCamera.position, scale3(forward, moveStep));
             break;
         case 'a':
         case 'A':
-            gCamera.pos = sub3(gCamera.pos, scale3(right, moveStep));
+            gCamera.position = sub3(gCamera.position, scale3(right, moveStep));
             break;
         case 'd':
         case 'D':
-            gCamera.pos = add3(gCamera.pos, scale3(right, moveStep));
+            gCamera.position = add3(gCamera.position, scale3(right, moveStep));
             break;
         case 'r':
         case 'R':
@@ -519,16 +519,16 @@ static void specialKeys(const int key, const int x, const int y) {
     const float angStep = 0.05f;
     switch (key) {
         case GLUT_KEY_LEFT:
-            gCamera.yaw -= angStep;
+            gCamera.yawHorizontalDegree -= angStep;
             break;
         case GLUT_KEY_RIGHT:
-            gCamera.yaw += angStep;
+            gCamera.yawHorizontalDegree += angStep;
             break;
         case GLUT_KEY_UP:
-            gCamera.pitch = clampf(gCamera.pitch + angStep, -1.25f, 1.25f);
+            gCamera.pitchVerticalDegree = clampf(gCamera.pitchVerticalDegree + angStep, -1.25f, 1.25f);
             break;
         case GLUT_KEY_DOWN:
-            gCamera.pitch = clampf(gCamera.pitch - angStep, -1.25f, 1.25f);
+            gCamera.pitchVerticalDegree = clampf(gCamera.pitchVerticalDegree - angStep, -1.25f, 1.25f);
             break;
     }
     glutPostRedisplay();
