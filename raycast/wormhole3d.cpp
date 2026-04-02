@@ -3,6 +3,13 @@
 #include <cmath>
 #include <cstdlib>
 #include <vector>
+#include <iostream>
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
+GLuint myTexture;
+GLUquadric* sphereQuadric;
 
 struct Vec3 {
     float x;
@@ -73,6 +80,43 @@ static int gButtonY = 16;
 static int gButtonW = 340;
 static int gButtonH = 34;
 
+// --- VARIÁVEIS PARA A CURVA DE BÉZIER (PRÁTICA 06) ---
+static bool gAnimatingCamera = false;
+static float gCameraT = 0.0f; // Varia de 0.0 (início) a 1.0 (fim)
+
+// 4 Pontos de controlo da curva: Início -> Entrada do Wormhole A -> Saída do Wormhole B -> Fim
+static Vec3 P0 = {0.0f, 0.9f, 2.2f};     // Posição inicial onde a câmara começa
+static Vec3 P1 = {-1.6f, 0.45f, -1.0f};  // Puxa a câmara na direção do Wormhole A
+static Vec3 P2 = {-1.6f, 0.45f, -4.2f};  // Exatamente no centro do Wormhole A
+static Vec3 P3 = {1.9f, 0.15f, -9.2f};   // Sai voando pelo centro do Wormhole B
+// ------------------------------------------------------
+
+void loadTexture(const char* filename) {
+    int width, height, nrChannels;
+    unsigned char* data = stbi_load(filename, &width, &height, &nrChannels, 0);
+    
+    if (data) {
+        glGenTextures(1, &myTexture);
+        glBindTexture(GL_TEXTURE_2D, myTexture);
+        
+        // Parâmetros de textura
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        
+        // Carrega a textura dependendo dos canais (RGB ou RGBA)
+        if (nrChannels == 3) {
+            gluBuild2DMipmaps(GL_TEXTURE_2D, 3, width, height, GL_RGB, GL_UNSIGNED_BYTE, data);
+        } else if (nrChannels == 4) {
+            gluBuild2DMipmaps(GL_TEXTURE_2D, 4, width, height, GL_RGBA, GL_UNSIGNED_BYTE, data);
+        }
+        stbi_image_free(data);
+    } else {
+        std::cerr << "Falha ao carregar a textura: " << filename << std::endl;
+    }
+}
+
 static float clampf(const float v, const float lo, const float hi) {
     return std::max(lo, std::min(v, hi));
 }
@@ -111,6 +155,21 @@ static Vec3 abs3(const Vec3& v) {
 
 static Vec3 max3(const Vec3& v, const float m) {
     return {std::max(v.x, m), std::max(v.y, m), std::max(v.z, m)};
+}
+
+// Calcula um ponto na Curva de Bézier Cúbica
+static Vec3 calculateBezierPoint(float t, const Vec3& p0, const Vec3& p1, const Vec3& p2, const Vec3& p3) {
+    float u = 1.0f - t;
+    float tt = t * t;
+    float uu = u * u;
+    float uuu = uu * u;
+    float ttt = tt * t;
+
+    Vec3 p;
+    p.x = uuu * p0.x + 3 * uu * t * p1.x + 3 * u * tt * p2.x + ttt * p3.x;
+    p.y = uuu * p0.y + 3 * uu * t * p1.y + 3 * u * tt * p2.y + ttt * p3.y;
+    p.z = uuu * p0.z + 3 * uu * t * p1.z + 3 * u * tt * p2.z + ttt * p3.z;
+    return p;
 }
 
 static Vec3 rayForward() {
@@ -255,14 +314,24 @@ static void rasterScene() {
     glEnd();
 
     glEnable(GL_LIGHTING);
+
+    glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, myTexture);
+    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+    
+    glEnable(GL_COLOR_MATERIAL);
+    glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
+    
     for (size_t i = 0; i < gSpheres.size(); ++i) {
         glPushMatrix();
         glTranslatef(gSpheres[i].center.x, gSpheres[i].center.y, gSpheres[i].center.z);
         GLfloat kd[4] = {gSpheres[i].color.x, gSpheres[i].color.y, gSpheres[i].color.z, 1.0f};
         glMaterialfv(GL_FRONT, GL_DIFFUSE, kd);
-        glutSolidSphere(gSpheres[i].radius, 32, 24);
+        gluSphere(sphereQuadric, gSpheres[i].radius, 32, 24);
         glPopMatrix();
     }
+
+    glDisable(GL_TEXTURE_2D);
 
     for (size_t i = 0; i < gBoxes.size(); ++i) {
         glPushMatrix();
@@ -437,7 +506,7 @@ static void drawOverlay() {
     }
 
     glColor3f(0.82f, 0.84f, 0.88f);
-    drawText(18, 62, "WASD: mover camera | Setas: olhar | R/F: forca wormhole | ESC: sair");
+    drawText(18, 62, "WASD: mover | Setas: olhar | C: Viagem Wormhole (Bezier) | T: Raycast");
 
     glPopMatrix();
     glMatrixMode(GL_PROJECTION);
@@ -446,6 +515,18 @@ static void drawOverlay() {
 }
 
 static void display() {
+    if (gAnimatingCamera) {
+        gCameraT += 0.003f;
+
+        if (gCameraT > 1.0f) {
+            gCameraT = 0.0f;
+            gAnimatingCamera = false;
+        }
+
+        gCamera.position = calculateBezierPoint(gCameraT, P0, P1, P2, P3);
+        glutPostRedisplay();
+    }
+    
     if (gUseRaycast) {
         raycastScene();
     } else {
@@ -507,6 +588,13 @@ static void keyboard(const unsigned char key, const int x, const int y) {
         case 'T':
             gUseRaycast = !gUseRaycast;
             break;
+        case 'c':
+        case 'C':
+            gAnimatingCamera = !gAnimatingCamera;
+            if (gAnimatingCamera && gCameraT > 1.0f) {
+                gCameraT = 0.0f;
+            }
+            break;
     }
 
     glutPostRedisplay();
@@ -554,6 +642,12 @@ static void init() {
     glClearColor(0.02f, 0.03f, 0.05f, 1.0f);
     glEnable(GL_COLOR_MATERIAL);
     glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
+
+    loadTexture("raycast/textura.jpg");
+    
+    sphereQuadric = gluNewQuadric();
+    gluQuadricTexture(sphereQuadric, GL_TRUE);
+    gluQuadricNormals(sphereQuadric, GLU_SMOOTH);
 }
 
 int main(int argc, char** argv) {
