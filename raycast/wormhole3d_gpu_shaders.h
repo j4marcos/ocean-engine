@@ -1,7 +1,7 @@
 #ifndef WORMHOLE3D_GPU_SHADERS_H
 #define WORMHOLE3D_GPU_SHADERS_H
 
-// GLSL 1.20 (OpenGL 2.1) — manter em sync com traceRay() em wormhole3d.cpp
+// GLSL 1.20 (OpenGL 2.1) — manter em sync com traceRay() em wormhole3d_simulation.cpp
 static const char kVertRaycast[] = R"GLSL(#version 120
 attribute vec2 aPos;
 void main() {
