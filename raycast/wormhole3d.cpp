@@ -17,6 +17,7 @@
 #include "wormhole3d_gpu_shaders.h"
 
 GLuint myTexture;
+GLuint gTexSky;        // textura do céu estrelado (stars.jpg)
 GLUquadric* sphereQuadric;
 
 struct Vec3 {
@@ -418,6 +419,35 @@ static Vec3 teleportToOppositeSide(
     return add3(destination.center, scale3(normal, -(destination.coreRadius + margin)));
 }
 
+// Desenha a cúpula celeste (skybox esférico):
+// A câmera fica DENTRO de uma esfera grande texturizada com stars.jpg.
+// Dois truques essenciais para o efeito funcionar corretamente:
+//   1. glDepthMask(GL_FALSE): não escreve no depth buffer, 
+//      garantindo que todo objeto da cena aparecerá na frente do céu.
+//   2. Translada a esfera para a posição da câmera antes de desenhá-la,
+//      de forma que a câmera esteja sempre no centro da redoma,
+//      independente de para onde ela na cena.
+static void drawSkybox() {
+    if (!gTexSky) return; // sem textura, pula
+
+    glDisable(GL_LIGHTING);     // céu não recebe iluminação (sempre brilha igual)
+    glDepthMask(GL_FALSE);      // não escreve no depth buffer
+    glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, gTexSky);
+    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE); // cor pura da textura
+
+    glPushMatrix();
+    // Move a esfera para que a câmera fique sempre no centro dela
+    glTranslatef(gCamera.position.x, gCamera.position.y, gCamera.position.z);
+    // Raio grande o suficiente para conter toda a cena visível
+    gluSphere(sphereQuadric, 80.0, 64, 64);
+    glPopMatrix();
+
+    glDepthMask(GL_TRUE);       // restaura escrita no depth buffer
+    glDisable(GL_TEXTURE_2D);
+    glEnable(GL_LIGHTING);
+}
+
 static void rasterScene() {
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_LIGHTING);
@@ -440,6 +470,9 @@ static void rasterScene() {
     const Vec3 f = rayForward();
     const Vec3 target = add3(gCamera.position, f);
     gluLookAt(gCamera.position.x, gCamera.position.y, gCamera.position.z, target.x, target.y, target.z, 0.0, 1.0, 0.0);
+
+    // Skybox: desenhado PRIMEIRO e sem depth write para ficar sempre ao fundo
+    drawSkybox();
 
     glDisable(GL_LIGHTING);
     glColor3f(0.13f, 0.16f, 0.19f);
@@ -1030,7 +1063,30 @@ static void init() {
     glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
 
     loadTexture("raycast/textura.jpg");
-    
+
+    // Textura do céu: tenta space.jpg e stars.jpg como fallback
+    {
+        int w, h, ch;
+        auto tryLoad = [&](const char* path) -> GLuint {
+            unsigned char* d = stbi_load(path, &w, &h, &ch, 0);
+            if (!d) return 0;
+            GLuint id; glGenTextures(1, &id);
+            glBindTexture(GL_TEXTURE_2D, id);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            GLenum fmt = (ch == 4) ? GL_RGBA : GL_RGB;
+            gluBuild2DMipmaps(GL_TEXTURE_2D, ch, w, h, fmt, GL_UNSIGNED_BYTE, d);
+            stbi_image_free(d);
+            return id;
+        };
+        gTexSky = tryLoad("raycast/textures/space.jpg");
+        if (!gTexSky) gTexSky = tryLoad("raycast/textures/stars.jpg");
+        if (!gTexSky) gTexSky = tryLoad("raycast/stars.jpg");
+        if (!gTexSky) std::cerr << "[AVISO] Sem textura de ceu (space.jpg / stars.jpg)\n";
+    }
+
     sphereQuadric = gluNewQuadric();
     gluQuadricTexture(sphereQuadric, GL_TRUE);
     gluQuadricNormals(sphereQuadric, GLU_SMOOTH);
