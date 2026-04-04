@@ -55,20 +55,49 @@ static void reshape(const int w, const int h) {
     glutPostRedisplay();
 }
 
+static void applyNumericMode(const int digit) {
+    switch (digit) {
+        case 1:
+            gUseRaycast = false;
+            break;
+        case 2:
+            gUseRaycast = true;
+            gUseGpuRaycast = false;
+            break;
+        case 3:
+            gUseRaycast = true;
+            if (gRaycastGpuReady) {
+                gUseGpuRaycast = true;
+            } else {
+                gUseGpuRaycast = false;
+            }
+            break;
+        case 4:
+            gAnimatingCamera = !gAnimatingCamera;
+            if (gAnimatingCamera && gCameraT > 1.0f) {
+                gCameraT = 0.0f;
+            }
+            break;
+        default:
+            break;
+    }
+}
+
 static void keyboard(const unsigned char key, const int x, const int y) {
     (void)x;
     (void)y;
+
+    if (key >= '1' && key <= '9') {
+        applyNumericMode(static_cast<int>(key - '0'));
+        glutPostRedisplay();
+        return;
+    }
 
     const Vec3 forward = rayForward();
     const Vec3 right = rayRight();
     const float moveStep = 0.24f;
 
     switch (key) {
-        case 27:
-        case 'q':
-        case 'Q':
-            std::exit(0);
-            break;
         case 'w':
         case 'W':
             gCamera.position = add3(gCamera.position, scale3(forward, moveStep));
@@ -94,17 +123,6 @@ static void keyboard(const unsigned char key, const int x, const int y) {
         case 'F':
             gWormhole.holeA.strength = clampf(gWormhole.holeA.strength - 0.02f, 0.02f, 1.2f);
             gWormhole.holeB.strength = gWormhole.holeA.strength;
-            break;
-        case 't':
-        case 'T':
-            gUseRaycast = !gUseRaycast;
-            break;
-        case 'c':
-        case 'C':
-            gAnimatingCamera = !gAnimatingCamera;
-            if (gAnimatingCamera && gCameraT > 1.0f) {
-                gCameraT = 0.0f;
-            }
             break;
     }
 
@@ -133,34 +151,6 @@ static void specialKeys(const int key, const int x, const int y) {
     glutPostRedisplay();
 }
 
-static void mouse(const int button, const int state, const int x, const int y) {
-    if (button != GLUT_LEFT_BUTTON || state != GLUT_DOWN) {
-        return;
-    }
-
-    const int yBottom = gWindowHeight - y;
-    const bool insideMode =
-        x >= gButtonX && x <= gButtonX + gButtonW &&
-        yBottom >= gButtonY && yBottom <= gButtonY + gButtonH;
-
-    if (insideMode) {
-        gUseRaycast = !gUseRaycast;
-        glutPostRedisplay();
-        return;
-    }
-
-    const int gpuBtnY = gButtonY + gButtonH + kGpuCpuButtonGap;
-    const bool insideGpuCpu =
-        gRaycastGpuReady && gUseRaycast &&
-        x >= gButtonX && x <= gButtonX + gButtonW &&
-        yBottom >= gpuBtnY && yBottom <= gpuBtnY + gButtonH;
-
-    if (insideGpuCpu) {
-        gUseGpuRaycast = !gUseGpuRaycast;
-        glutPostRedisplay();
-    }
-}
-
 static void idle() {
     glutPostRedisplay();
 }
@@ -187,7 +177,6 @@ int main(int argc, char** argv) {
     glutReshapeFunc(reshape);
     glutKeyboardFunc(keyboard);
     glutSpecialFunc(specialKeys);
-    glutMouseFunc(mouse);
     glutIdleFunc(idle);
 
     glutMainLoop();

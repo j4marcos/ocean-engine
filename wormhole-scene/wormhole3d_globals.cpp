@@ -25,13 +25,23 @@ std::vector<Aabb> gBoxes = {
     {{3.1f, -0.60f, -10.0f}, {0.50f, 0.25f, 0.50f}, {0.74f, 0.74f, 0.80f}}
 };
 
-std::vector<unsigned char> gRaycastPixels(kRaycastWidth * kRaycastHeight * 3, 0);
+// ilha (superfície 3d com heightmap usando real-bumpmap)
 
-int gButtonX = 18;
-int gButtonY = 16;
-int gButtonW = 340;
-int gButtonH = 34;
-const int kGpuCpuButtonGap = 6;
+// predios (array de objetos predio) (bloco 3d com textura de paredes)
+
+// arvores (array de objetos arvore) (tronco 3d)
+
+// folhas (array de objetos folha) (textura de folha em 8 direções juntas)
+
+// poste (aste 3d com ponto de luz no topo)
+
+// agua do mar (superfície gigante 3d com heightmap usando real-bumpmap) (totalmente refletiva, mas deixa o raio um pouco azul)
+
+
+
+
+
+std::vector<unsigned char> gRaycastPixels(kRaycastWidth * kRaycastHeight * 3, 0);
 
 int gFpsLastMs = 0;
 int gFpsFrameAccum = 0;

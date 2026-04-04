@@ -22,12 +22,6 @@ extern std::vector<Aabb> gBoxes;
 
 extern std::vector<unsigned char> gRaycastPixels;
 
-extern int gButtonX;
-extern int gButtonY;
-extern int gButtonW;
-extern int gButtonH;
-extern const int kGpuCpuButtonGap;
-
 extern int gFpsLastMs;
 extern int gFpsFrameAccum;
 extern float gFpsDisplay;
