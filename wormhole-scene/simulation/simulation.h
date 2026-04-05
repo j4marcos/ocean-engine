@@ -15,7 +15,7 @@ Vec3 max3(const Vec3& v, float m);
 Vec3 calculateBezierPoint(float t, const Vec3& p0, const Vec3& p1, const Vec3& p2, const Vec3& p3);
 Vec3 calculateBezierDerivative(float t, const Vec3& p0, const Vec3& p1, const Vec3& p2, const Vec3& p3);
 
-/** Esferas em curvas Bézier (`gBezierMovingSpheres` em `sceneBuildCrossingQuarter`). */
+/** Esferas em curvas Bézier (`gBezierMovingSpheres` em `sceneBuild`). */
 void movingBezierSpheresCompute(Vec3 spheres[3]);
 /** Carros: praia, Bézier em `gBezierCarBeach`, volta contínua; lento no meio (ease no parâmetro). */
 void carBeachMotionSample(int carIndex, Vec3& outAnchor, float& outForwardX, float& outForwardZ);

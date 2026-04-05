@@ -41,3 +41,16 @@ joga raio de luz ate intercectar algo, se interceptar objeto , calcula se o cami
 se o raio cair em um wormhole warp radios então o raio se conporta como um ray march. 
 
 no gpu:
+
+
+// ilha (superfície 3d com heightmap usando real-bumpmap)
+
+// predios (array de objetos predio) (bloco 3d com textura de paredes)
+
+// arvores (array de objetos arvore) (tronco 3d)
+
+// folhas (array de objetos folha) (textura de folha em 8 direções juntas)
+
+// poste (aste 3d com ponto de luz no topo)
+
+// agua do mar (superfície gigante 3d com heightmap usando real-bumpmap) (totalmente refletiva, mas deixa o raio um pouco azul)

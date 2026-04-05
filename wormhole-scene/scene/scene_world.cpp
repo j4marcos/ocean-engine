@@ -1,6 +1,6 @@
 #include "scene_world.h"
 
-#include "scene_entities.h"
+#include "scene_prefabs.h"
 #include "scene_moving.h"
 
 #include "wormhole3d_globals.h"
@@ -42,7 +42,7 @@ inline float slabCenterY() {
     return kSceneGroundY + kSlabH;
 }
 
-/** Árvores na areia (ilha 1): Z entre mar e rua (~−5…−2). Poucas instâncias para caber na textura GPU (≤96 objetos). */
+/** Árvores na areia (ilha 1): Z entre mar e rua (~−5…−2). Poucas instâncias para caber na textura GPU (`kSceneDataWidth`). */
 constexpr float kBeachTreeXZ[][2] = {
     {-18.0f, -3.4f},
     {-8.0f, -4.1f},
@@ -64,7 +64,7 @@ constexpr float kIsland2TreeXZ[][2] = {
 
 } // namespace
 
-void sceneBuildCrossingQuarter() {
+void sceneBuild() {
     gSpheres.clear();
     gBoxes.clear();
     gPointLights.clear();
@@ -191,6 +191,28 @@ void sceneBuildCrossingQuarter() {
     gWormhole.holeA.center = {cx, 0.3f, streetCenterZ};
     gWormhole.holeB.center = {cx, 15.0f, -50.0f};
 
+    {
+        const RGBA kLhTowerCol = {0.9f, 0.89f, 0.86f, 1.0f};
+        for (int i = 0; i < kMovingBezierSphereCount; ++i) {
+            gMovingBezierSphereIndex[static_cast<size_t>(i)] = static_cast<int>(gSpheres.size());
+            gSpheres.push_back({{0.0f, 0.0f, 0.0f}, kMovingSphereRadius, kMovingSphereMaterial});
+        }
+        for (int i = 0; i < kMovingCarCount; ++i) {
+            gCarRearBoxIndex[static_cast<size_t>(i)] = static_cast<int>(gBoxes.size());
+            gBoxes.push_back({{0.0f, -500.0f, 0.0f}, {1e-3f, 1e-3f, 1e-3f}, kCarRearBoxColor});
+            gCarFrontBoxIndex[static_cast<size_t>(i)] = static_cast<int>(gBoxes.size());
+            gBoxes.push_back({{0.0f, -500.0f, 0.0f}, {1e-3f, 1e-3f, 1e-3f}, kCarFrontBoxColor});
+        }
+        gLighthouseTowerBoxIndex = static_cast<int>(gBoxes.size());
+        gBoxes.push_back(
+            {lighthouseTowerCenterWorld(),
+             {kLighthouseTowerHalfXZ, kLighthouseTowerHalfY, kLighthouseTowerHalfXZ},
+             kLhTowerCol});
+        for (int p = 0; p < kLighthouseHeadPlateCount; ++p) {
+            gLighthouseHeadPlateBoxIndex[static_cast<size_t>(p)] = static_cast<int>(gBoxes.size());
+            gBoxes.push_back({{0.0f, 0.0f, 0.0f}, {1e-3f, 1e-3f, 1e-3f}, kLighthouseHeadPlateColor});
+        }
+    }
 
     const float lightY = postPointLightY(ph);
     const Vec3 lampRgb = {0.98f, 0.88f, 0.42f};
@@ -209,4 +231,5 @@ void sceneBuildCrossingQuarter() {
     gPointLights.push_back({{0.0f, 0.0f, 0.0f}, kLighthouseBeamRgb, kLighthouseBeamRange});
 
     boatsUpdateDynamicGeometry();
+    syncDynamicPrimitivesToScene();
 }

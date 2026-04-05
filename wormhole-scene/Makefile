@@ -11,7 +11,7 @@ SRCS := \
 	audio/wormhole3d_audio.cpp \
 	wormhole3d_globals.cpp \
 	scene/scene_gpu.cpp \
-	scene/scene_entities.cpp \
+	scene/scene_prefabs.cpp \
 	scene/scene_world.cpp \
 	scene/scene_moving.cpp \
 	simulation/simulation.cpp \

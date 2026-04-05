@@ -5,7 +5,7 @@
 #include "scene_moving.h"
 
 void raycastScene() {
-    sceneUpdateDynamicElements();
+    // sceneUpdateDynamicElements();
     if (gRaycastGpuReady && gUseGpuRaycast) {
         raycastSceneGpu();
     } else {

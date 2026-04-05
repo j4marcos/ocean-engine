@@ -65,66 +65,6 @@ uniform float uAmbient;
 uniform float uPointLightScale;
 uniform float uSkyDayFactor;
 
-uniform vec3 uMovingSpherePos[3];
-uniform float uMovingSphereRadius;
-uniform vec3 uCarRearPos[3];
-uniform vec3 uCarFrontPos[3];
-uniform vec3 uCarRearHalf;
-uniform vec3 uCarFrontHalf;
-// Geometria animada extra (torre + caixa aberta); iluminação só via uPoint* como os demais pontos.
-uniform vec3 uAnimA_center;
-uniform vec3 uAnimA_half;
-uniform vec3 uAnimB_center;
-uniform float uAnimB_yaw;
-uniform float uAnimB_half;
-uniform float uAnimB_wallT;
-
-float sdfMovingSpheres(vec3 p) {
-    float d = 1e10;
-    for (int bi = 0; bi < 3; bi++) {
-        d = min(d, sdfSphere(p, uMovingSpherePos[bi], uMovingSphereRadius));
-    }
-    return d;
-}
-
-float sdfCars(vec3 p) {
-    float d = 1e10;
-    for (int ci = 0; ci < 3; ci++) {
-        d = min(d, sdfAabb(p, uCarRearPos[ci], uCarRearHalf));
-        d = min(d, sdfAabb(p, uCarFrontPos[ci], uCarFrontHalf));
-    }
-    return d;
-}
-
-float sdfAnimFacePl(vec3 pl, vec3 c, vec3 h) {
-    return sdfAabb(pl, c, h);
-}
-
-float sdfAnimOpenShell(vec3 p, float yaw) {
-    vec3 hc = uAnimB_center;
-    vec3 q = p - hc;
-    float c = cos(-yaw);
-    float s = sin(-yaw);
-    vec3 pl = vec3(c * q.x + s * q.z, q.y, -s * q.x + c * q.z);
-    float h = uAnimB_half;
-    float t = uAnimB_wallT;
-    float d = 1e10;
-    d = min(d, sdfAnimFacePl(pl, vec3(-h, 0.0, 0.0), vec3(t, h, h)));
-    d = min(d, sdfAnimFacePl(pl, vec3(0.0, 0.0, h), vec3(h, h, t)));
-    d = min(d, sdfAnimFacePl(pl, vec3(0.0, 0.0, -h), vec3(h, h, t)));
-    d = min(d, sdfAnimFacePl(pl, vec3(0.0, h, 0.0), vec3(h, t, h)));
-    d = min(d, sdfAnimFacePl(pl, vec3(0.0, -h, 0.0), vec3(h, t, h)));
-    return d;
-}
-
-float sdfAnimTower(vec3 p) {
-    return sdfAabb(p, uAnimA_center, uAnimA_half);
-}
-
-float sdfAnimExtraGeom(vec3 p) {
-    return min(sdfAnimTower(p), sdfAnimOpenShell(p, uAnimB_yaw));
-}
-
 vec3 warpFieldFromHole(vec3 p, vec3 center, float radius, float strength) {
     vec3 toCenter = center - p;
     float d = length3(toCenter);
@@ -141,10 +81,7 @@ vec3 warpField(vec3 p) {
 
 float sdfScene(vec3 p) {
     float d = sdfFloor(p);
-    d = min(d, sdfMovingSpheres(p));
-    d = min(d, sdfCars(p));
-    d = min(d, sdfAnimExtraGeom(p));
-    for (int i = 0; i < 96; i++) {
+    for (int i = 0; i < 128; i++) {
         if (i >= uObjectCount) {
             break;
         }
@@ -170,39 +107,7 @@ float sdfScene(vec3 p) {
 vec3 sceneColorAt(vec3 p) {
     float bestD = sdfFloor(p);
     vec3 color = vec3(0.35, 0.37, 0.61);
-    {
-        float dm = sdfMovingSpheres(p);
-        if (dm < bestD) {
-            bestD = dm;
-            color = vec3(1.0, 1.0, 1.0);
-        }
-    }
-    {
-        float dr = 1e10;
-        float df = 1e10;
-        for (int ci = 0; ci < 3; ci++) {
-            dr = min(dr, sdfAabb(p, uCarRearPos[ci], uCarRearHalf));
-            df = min(df, sdfAabb(p, uCarFrontPos[ci], uCarFrontHalf));
-        }
-        float dc = min(dr, df);
-        if (dc < bestD) {
-            bestD = dc;
-            color = df < dr ? vec3(0.92, 0.12, 0.1) : vec3(0.9, 0.13, 0.11);
-        }
-    }
-    {
-        float dlt = sdfAnimTower(p);
-        if (dlt < bestD) {
-            bestD = dlt;
-            color = vec3(0.9, 0.89, 0.86);
-        }
-        float dlh = sdfAnimOpenShell(p, uAnimB_yaw);
-        if (dlh < bestD) {
-            bestD = dlh;
-            color = vec3(0.72, 0.78, 0.86);
-        }
-    }
-    for (int i = 0; i < 96; i++) {
+    for (int i = 0; i < 128; i++) {
         if (i >= uObjectCount) {
             break;
         }
@@ -275,7 +180,7 @@ vec3 skyColor(vec3 dir) {
     return mix(base, portalTint + base * 0.2, blend);
 }
 
-// Reflexo só no plano oceano (sdfFloor == sdfScene). Lajes finas: dScene≈0, df≈0,04 — não coincidir (ver kOceanFloorMatchEps em scene_entities.h).
+// Reflexo só no plano oceano (sdfFloor == sdfScene). Lajes finas: dScene≈0, df≈0,04 — não coincidir (ver kOceanFloorMatchEps em scene_prefabs.h).
 bool isInfiniteFloorAt(vec3 p) {
     float df = sdfFloor(p);
     float dScene = sdfScene(p);
@@ -345,35 +250,6 @@ float rayAabbEnterT(vec3 o, vec3 d, vec3 c, vec3 h, float tMinEps, float maxDist
     return tCand;
 }
 
-// Casca da cabeça (5 placas, +X aberto): 1 = raio passa; 0 = bloqueado por parede.
-float lighthouseHeadShellVis(vec3 o, vec3 dir, float tMin, float maxT) {
-    vec3 hc = uAnimB_center;
-    float yaw = uAnimB_yaw;
-    float h = uAnimB_half;
-    float wt = uAnimB_wallT;
-    vec3 q = o - hc;
-    float c = cos(-yaw);
-    float s = sin(-yaw);
-    vec3 pl_o = vec3(c * q.x + s * q.z, q.y, -s * q.x + c * q.z);
-    vec3 pl_d = vec3(c * dir.x + s * dir.z, dir.y, -s * dir.x + c * dir.z);
-    if (rayAabbEnterT(pl_o, pl_d, vec3(-h, 0.0, 0.0), vec3(wt, h, h), tMin, maxT) >= 0.0) {
-        return 0.0;
-    }
-    if (rayAabbEnterT(pl_o, pl_d, vec3(0.0, 0.0, h), vec3(h, h, wt), tMin, maxT) >= 0.0) {
-        return 0.0;
-    }
-    if (rayAabbEnterT(pl_o, pl_d, vec3(0.0, 0.0, -h), vec3(h, h, wt), tMin, maxT) >= 0.0) {
-        return 0.0;
-    }
-    if (rayAabbEnterT(pl_o, pl_d, vec3(0.0, h, 0.0), vec3(h, wt, h), tMin, maxT) >= 0.0) {
-        return 0.0;
-    }
-    if (rayAabbEnterT(pl_o, pl_d, vec3(0.0, -h, 0.0), vec3(h, wt, h), tMin, maxT) >= 0.0) {
-        return 0.0;
-    }
-    return 1.0;
-}
-
 float sunShadowStraight(vec3 p, vec3 n, vec3 sunDir) {
     float kBias = 0.06;
     float kTMin = 0.04;
@@ -389,7 +265,7 @@ float sunShadowStraight(vec3 p, vec3 n, vec3 sunDir) {
         }
     }
 
-    for (int i = 0; i < 96; i++) {
+    for (int i = 0; i < 128; i++) {
         if (i >= uObjectCount) {
             break;
         }
@@ -414,29 +290,6 @@ float sunShadowStraight(vec3 p, vec3 n, vec3 sunDir) {
                 return 0.0;
             }
         }
-    }
-    for (int bi = 0; bi < 3; bi++) {
-        float tSb = raySphereMinT(o, sunDir, uMovingSpherePos[bi], uMovingSphereRadius, kTMin);
-        if (tSb > 0.0 && tSb < kMax) {
-            return 0.0;
-        }
-    }
-    for (int ci = 0; ci < 3; ci++) {
-        float tR = rayAabbEnterT(o, sunDir, uCarRearPos[ci], uCarRearHalf, kTMin, kMax);
-        if (tR >= 0.0) {
-            return 0.0;
-        }
-        float tF = rayAabbEnterT(o, sunDir, uCarFrontPos[ci], uCarFrontHalf, kTMin, kMax);
-        if (tF >= 0.0) {
-            return 0.0;
-        }
-    }
-    float tAnimA = rayAabbEnterT(o, sunDir, uAnimA_center, uAnimA_half, kTMin, kMax);
-    if (tAnimA >= 0.0) {
-        return 0.0;
-    }
-    if (lighthouseHeadShellVis(o, sunDir, kTMin, kMax) < 0.5) {
-        return 0.0;
     }
     return 1.0;
 }
@@ -467,7 +320,7 @@ float pointShadowStraight(vec3 p, vec3 n, vec3 lightPos) {
         }
     }
 
-    for (int i = 0; i < 96; i++) {
+    for (int i = 0; i < 128; i++) {
         if (i >= uObjectCount) {
             break;
         }
@@ -492,29 +345,6 @@ float pointShadowStraight(vec3 p, vec3 n, vec3 lightPos) {
                 return 0.0;
             }
         }
-    }
-    for (int bi = 0; bi < 3; bi++) {
-        float tSb = raySphereMinT(o, Ld, uMovingSpherePos[bi], uMovingSphereRadius, kTMin);
-        if (tSb > 0.0 && tSb < maxT) {
-            return 0.0;
-        }
-    }
-    for (int ci = 0; ci < 3; ci++) {
-        float tR = rayAabbEnterT(o, Ld, uCarRearPos[ci], uCarRearHalf, kTMin, maxT);
-        if (tR >= 0.0) {
-            return 0.0;
-        }
-        float tF = rayAabbEnterT(o, Ld, uCarFrontPos[ci], uCarFrontHalf, kTMin, maxT);
-        if (tF >= 0.0) {
-            return 0.0;
-        }
-    }
-    float tAnimAp = rayAabbEnterT(o, Ld, uAnimA_center, uAnimA_half, kTMin, maxT);
-    if (tAnimAp >= 0.0) {
-        return 0.0;
-    }
-    if (lighthouseHeadShellVis(o, Ld, kTMin, maxT) < 0.5) {
-        return 0.0;
     }
     return 1.0;
 }

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "scene_entities.h"
+#include "scene_prefabs.h"
 #include "wormhole3d_types.h"
 
 #include <cmath>
@@ -112,12 +112,19 @@ inline constexpr float kLighthouseHeadHalf = 1.15f;
 inline constexpr float kLighthouseTowerHalfXZ = kLighthouseHeadHalf;
 inline constexpr float kLighthouseFaceThickness = 0.09f;
 inline constexpr float kLighthouseYawSpeed = 0.42f;
+/** Faces da cabeça (cubo oco; +X aberto para a luz). */
+inline constexpr int kLighthouseHeadPlateCount = 5;
+inline constexpr RGBA kLighthouseHeadPlateColor = {0.72f, 0.78f, 0.86f, 1.0f};
+inline constexpr RGBA kCarRearBoxColor = {0.9f, 0.13f, 0.11f, 1.0f};
+inline constexpr RGBA kCarFrontBoxColor = {0.92f, 0.12f, 0.1f, 1.0f};
 
-/** Preenchido em sceneBuildCrossingQuarter — centro Z da rua (carros). */
+/** Preenchido em sceneBuild — centro Z da rua (carros). */
 extern float gStreetCenterZ;
 
 void sceneUpdateDynamicElements();
 void boatsUpdateDynamicGeometry();
+/** Atualiza centros das esferas Bézier, AABBs dos carros e do farol (torre + placas em mundo). */
+void syncDynamicPrimitivesToScene();
 
 Vec3 lighthouseTowerCenterWorld();
 Vec3 lighthouseHeadCenterWorld();

@@ -24,7 +24,7 @@ extern std::vector<Aabb> gBoxes;
 inline constexpr int kMaxPointLights = 1000;
 extern std::vector<PointLight> gPointLights;
 
-/** Preenchido em `sceneBuildCrossingQuarter()` — esferas em curvas Bézier (render só vê SDF). */
+/** Preenchido em `sceneBuild()` — esferas em curvas Bézier (render só vê SDF). */
 extern std::array<BezierPath4, 3> gBezierMovingSpheres;
 /** Curva da praia para os carros (`carBeachMotionSample`); deve ter 3 faixas Z em código. */
 extern BezierPath4 gBezierCarBeach;
@@ -32,6 +32,14 @@ extern BezierPath4 gBezierCarBeach;
 extern std::array<int, 3> gBoatHullBoxIndex;
 extern std::array<int, 3> gBoatPoleBoxIndex;
 extern std::array<int, 3> gBoatBulbSphereIndex;
+
+/** Esferas Bézier / carros / farol: slots em `gSpheres`/`gBoxes`, preenchidos em `syncDynamicPrimitivesToScene`. */
+extern std::array<int, 3> gMovingBezierSphereIndex;
+extern std::array<int, 3> gCarRearBoxIndex;
+extern std::array<int, 3> gCarFrontBoxIndex;
+extern int gLighthouseTowerBoxIndex;
+/** Placas da cabeça (paralelepípedos em mundo); mesma ideia que os AABBs dos carros. */
+extern std::array<int, 5> gLighthouseHeadPlateBoxIndex;
 
 extern std::vector<unsigned char> gRaycastPixels;
 

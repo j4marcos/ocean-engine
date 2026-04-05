@@ -15,7 +15,11 @@
 #include <GL/glut.h>
 #include <GL/freeglut_ext.h>
 
+#include "scene_moving.h"
+
 static void display() {
+
+    // sincronizando tempo da app com o tempo do sistema para cliclo dia/noite e fps
     const int nowMs = glutGet(GLUT_ELAPSED_TIME);
     gSceneTimeMs = nowMs;
     gSceneTimeSec = static_cast<float>(nowMs) * 0.001f;
@@ -36,6 +40,7 @@ static void display() {
         gFpsLastMs = nowMs;
     }
 
+    // animando câmera - cinematica
     if (gAnimatingCamera) {
         gCameraT += 0.003f;
 
@@ -50,6 +55,10 @@ static void display() {
         glutPostRedisplay();
     }
 
+    // movendo os elementos na cena - dinamicos
+    sceneUpdateDynamicElements();
+
+    // renderizando cena
     if (gUseRaycast) {
         raycastScene();
     } else {
@@ -60,6 +69,7 @@ static void display() {
     glutSwapBuffers();
 }
 
+// window proporção e viewport
 static void reshape(const int w, const int h) {
     gWindowWidth = std::max(1, w);
     gWindowHeight = std::max(1, h);
@@ -214,13 +224,16 @@ static void specialKeys(const int key, const int x, const int y) {
     glutPostRedisplay();
 }
 
+// forçar redraw da cena a cada frame
 static void idle() {
     glutPostRedisplay();
 }
 
 int main(int argc, char** argv) {
-    sceneBuildCrossingQuarter();
+    // construindo a cena
+    sceneBuild();
 
+    // inicializando a janela da app
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH );
     glutInitContextVersion(2, 1);
@@ -228,17 +241,28 @@ int main(int argc, char** argv) {
     glutInitWindowPosition(100, 60);
     glutCreateWindow("Raycast Wormhole Simulation 3D");
 
+    // 0 - fps ilimitado, 
+    // 1 - fps limitado ao buffer de swap (monitor refresh rate)
     glutSwapInterval(0);
 
+    // carregando o buffer de raycast em gpu
     if (initGpuRaycast()) {
         gRaycastGpuReady = true;
     } else {
         std::cerr << "GPU raycast init failed; using CPU fallback for raycast mode.\n";
     }
 
-    initAppGl();
+    // configurando a janela da app
+    glClearColor(0.02f, 0.03f, 0.05f, 1.0f);
+    glDisable(GL_COLOR_MATERIAL);
 
-    wormhole3dStartBackgroundMusic(argv[0]);
+    // configurando a esfera quadrica
+    sphereQuadric = gluNewQuadric();
+    gluQuadricTexture(sphereQuadric, GL_FALSE);
+    gluQuadricNormals(sphereQuadric, GLU_SMOOTH);
+
+    // init music background
+    startBackgroundMusic(argv[0]);
 
     glutDisplayFunc(display);
     glutReshapeFunc(reshape);

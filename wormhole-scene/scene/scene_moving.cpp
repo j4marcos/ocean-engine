@@ -1,6 +1,6 @@
 #include "scene_moving.h"
 
-#include "scene_entities.h"
+#include "scene_prefabs.h"
 #include "wormhole3d_globals.h"
 #include "wormhole3d_simulation.h"
 
@@ -94,6 +94,142 @@ float lighthouseYawRad() {
     return gSceneTimeSec * kLighthouseYawSpeed;
 }
 
+namespace {
+
+/** R^T: vetor no espaço local da cabeça → deslocamento em mundo (p = hc + R^T * pl). */
+void localDeltaToWorld(const float yaw, const Vec3& pl, Vec3& out) {
+    const float c = std::cos(-yaw);
+    const float s = std::sin(-yaw);
+    out.x = c * pl.x - s * pl.z;
+    out.y = pl.y;
+    out.z = s * pl.x + c * pl.z;
+}
+
+/** Placa (AABB no espaço local) → AABB em eixos mundo (envoltória da rotação em Y). */
+void lighthousePlateWorldAabb(const Vec3& hc, const float yaw, const Vec3& lc, const Vec3& half, Aabb& out) {
+    float minx = 1e30f;
+    float miny = 1e30f;
+    float minz = 1e30f;
+    float maxx = -1e30f;
+    float maxy = -1e30f;
+    float maxz = -1e30f;
+    for (int sx = -1; sx <= 1; sx += 2) {
+        for (int sy = -1; sy <= 1; sy += 2) {
+            for (int sz = -1; sz <= 1; sz += 2) {
+                const Vec3 pl = {
+                    lc.x + static_cast<float>(sx) * half.x,
+                    lc.y + static_cast<float>(sy) * half.y,
+                    lc.z + static_cast<float>(sz) * half.z,
+                };
+                Vec3 w{};
+                localDeltaToWorld(yaw, pl, w);
+                w.x += hc.x;
+                w.y += hc.y;
+                w.z += hc.z;
+                minx = std::min(minx, w.x);
+                miny = std::min(miny, w.y);
+                minz = std::min(minz, w.z);
+                maxx = std::max(maxx, w.x);
+                maxy = std::max(maxy, w.y);
+                maxz = std::max(maxz, w.z);
+            }
+        }
+    }
+    out.center = {(minx + maxx) * 0.5f, (miny + maxy) * 0.5f, (minz + maxz) * 0.5f};
+    out.halfSize = {(maxx - minx) * 0.5f, (maxy - miny) * 0.5f, (maxz - minz) * 0.5f};
+}
+
+} // namespace
+
+void syncDynamicPrimitivesToScene() {
+    Vec3 bezSph[3];
+    movingBezierSpheresCompute(bezSph);
+    for (int i = 0; i < kMovingBezierSphereCount; ++i) {
+        const int ix = gMovingBezierSphereIndex[static_cast<size_t>(i)];
+        if (ix >= 0 && static_cast<size_t>(ix) < gSpheres.size()) {
+            Sphere& s = gSpheres[static_cast<size_t>(ix)];
+            s.center = bezSph[static_cast<size_t>(i)];
+            s.radius = kMovingSphereRadius;
+            s.color = kMovingSphereMaterial;
+        }
+    }
+
+    static constexpr Vec3 kHideCenter = {0.0f, -500.0f, 0.0f};
+    static constexpr Vec3 kHideHalf = {1e-3f, 1e-3f, 1e-3f};
+
+    if (!gSceneVehiclesEnabled) {
+        for (int ci = 0; ci < kMovingCarCount; ++ci) {
+            const int ir = gCarRearBoxIndex[static_cast<size_t>(ci)];
+            const int iff = gCarFrontBoxIndex[static_cast<size_t>(ci)];
+            if (ir >= 0 && static_cast<size_t>(ir) < gBoxes.size()) {
+                gBoxes[static_cast<size_t>(ir)].center = kHideCenter;
+                gBoxes[static_cast<size_t>(ir)].halfSize = kHideHalf;
+            }
+            if (iff >= 0 && static_cast<size_t>(iff) < gBoxes.size()) {
+                gBoxes[static_cast<size_t>(iff)].center = kHideCenter;
+                gBoxes[static_cast<size_t>(iff)].halfSize = kHideHalf;
+            }
+        }
+    } else {
+        Vec3 anchor[3];
+        movingCarsCompute(anchor);
+        for (int ci = 0; ci < kMovingCarCount; ++ci) {
+            CarRigidState st{};
+            carRigidState(ci, anchor[static_cast<size_t>(ci)], st);
+            const Vec3 r = carRearBoxCenterWorld(st);
+            const Vec3 f = carFrontBoxCenterWorld(st);
+            const int ir = gCarRearBoxIndex[static_cast<size_t>(ci)];
+            const int iff = gCarFrontBoxIndex[static_cast<size_t>(ci)];
+            if (ir >= 0 && static_cast<size_t>(ir) < gBoxes.size()) {
+                Aabb& br = gBoxes[static_cast<size_t>(ir)];
+                br.center = r;
+                br.halfSize = {kCarRearHalfX, kCarRearHalfY, kCarRearHalfZ};
+                br.color = kCarRearBoxColor;
+            }
+            if (iff >= 0 && static_cast<size_t>(iff) < gBoxes.size()) {
+                Aabb& bf = gBoxes[static_cast<size_t>(iff)];
+                bf.center = f;
+                bf.halfSize = {kCarFrontHalfX, kCarFrontHalfY, kCarFrontHalfZ};
+                bf.color = kCarFrontBoxColor;
+            }
+        }
+    }
+
+    const Vec3 tc = lighthouseTowerCenterWorld();
+    const Vec3 hc = lighthouseHeadCenterWorld();
+    const float yaw = lighthouseYawRad();
+    const RGBA kLhTowerCol = {0.9f, 0.89f, 0.86f, 1.0f};
+
+    if (gLighthouseTowerBoxIndex >= 0 && static_cast<size_t>(gLighthouseTowerBoxIndex) < gBoxes.size()) {
+        Aabb& tb = gBoxes[static_cast<size_t>(gLighthouseTowerBoxIndex)];
+        tb.center = tc;
+        tb.halfSize = {kLighthouseTowerHalfXZ, kLighthouseTowerHalfY, kLighthouseTowerHalfXZ};
+        tb.color = kLhTowerCol;
+    }
+
+    const float h = kLighthouseHeadHalf;
+    const float t = kLighthouseFaceThickness;
+    const struct {
+        Vec3 c;
+        Vec3 halfSize;
+    } plates[] = {
+        {{-h, 0.0f, 0.0f}, {t, h, h}},
+        {{0.0f, 0.0f, h}, {h, h, t}},
+        {{0.0f, 0.0f, -h}, {h, h, t}},
+        {{0.0f, h, 0.0f}, {h, t, h}},
+        {{0.0f, -h, 0.0f}, {h, t, h}},
+    };
+    for (int p = 0; p < kLighthouseHeadPlateCount; ++p) {
+        const int ib = gLighthouseHeadPlateBoxIndex[static_cast<size_t>(p)];
+        if (ib < 0 || static_cast<size_t>(ib) >= gBoxes.size()) {
+            continue;
+        }
+        Aabb& box = gBoxes[static_cast<size_t>(ib)];
+        lighthousePlateWorldAabb(hc, yaw, plates[static_cast<size_t>(p)].c, plates[static_cast<size_t>(p)].halfSize, box);
+        box.color = kLighthouseHeadPlateColor;
+    }
+}
+
 void boatsUpdateDynamicGeometry() {
     constexpr float ph = 1.0f;
     if (!gSceneVehiclesEnabled) {
@@ -170,6 +306,7 @@ void sceneUpdateDynamicElements() {
     }
 
     boatsUpdateDynamicGeometry();
+    syncDynamicPrimitivesToScene();
 
     if (!gSceneVehiclesEnabled) {
         size_t li = static_cast<size_t>(kIdxFirstCarPointLight);

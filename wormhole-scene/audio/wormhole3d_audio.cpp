@@ -97,7 +97,7 @@ static void stopMusicOnExit() {
 
 } // namespace
 
-void wormhole3dStartBackgroundMusic(const char* argv0) {
+void startBackgroundMusic(const char* argv0) {
 #if defined(__unix__) || defined(__APPLE__)
     char path[PATH_MAX + 1];
     if (!resolveMusicPath(path, sizeof(path), argv0)) {

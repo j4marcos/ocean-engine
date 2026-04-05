@@ -3,7 +3,6 @@
 #include "wormhole3d_simulation.h"
 #include "wormhole3d_gpu_shaders.h"
 #include "scene_gpu.h"
-#include "scene_moving.h"
 
 #include <algorithm>
 #include <cmath>
@@ -95,18 +94,6 @@ GLint gLoc_uSunDiffuse = -1;
 GLint gLoc_uAmbient = -1;
 GLint gLoc_uPointLightScale = -1;
 GLint gLoc_uSkyDayFactor = -1;
-GLint gLoc_uMovingSpherePos0 = -1;
-GLint gLoc_uMovingSphereRadius = -1;
-GLint gLoc_uCarRearPos0 = -1;
-GLint gLoc_uCarFrontPos0 = -1;
-GLint gLoc_uCarRearHalf = -1;
-GLint gLoc_uCarFrontHalf = -1;
-GLint gLoc_uAnimA_center = -1;
-GLint gLoc_uAnimA_half = -1;
-GLint gLoc_uAnimB_center = -1;
-GLint gLoc_uAnimB_yaw = -1;
-GLint gLoc_uAnimB_half = -1;
-GLint gLoc_uAnimB_wallT = -1;
 
 void* glResolve(const char* name) {
     void* p = reinterpret_cast<void*>(glXGetProcAddress(reinterpret_cast<const GLubyte*>(name)));
@@ -275,18 +262,6 @@ bool initGpuRaycast() {
     gLoc_uAmbient = gGl.GetUniformLocation(gRayProgram, "uAmbient");
     gLoc_uPointLightScale = gGl.GetUniformLocation(gRayProgram, "uPointLightScale");
     gLoc_uSkyDayFactor = gGl.GetUniformLocation(gRayProgram, "uSkyDayFactor");
-    gLoc_uMovingSpherePos0 = gGl.GetUniformLocation(gRayProgram, "uMovingSpherePos[0]");
-    gLoc_uMovingSphereRadius = gGl.GetUniformLocation(gRayProgram, "uMovingSphereRadius");
-    gLoc_uCarRearPos0 = gGl.GetUniformLocation(gRayProgram, "uCarRearPos[0]");
-    gLoc_uCarFrontPos0 = gGl.GetUniformLocation(gRayProgram, "uCarFrontPos[0]");
-    gLoc_uCarRearHalf = gGl.GetUniformLocation(gRayProgram, "uCarRearHalf");
-    gLoc_uCarFrontHalf = gGl.GetUniformLocation(gRayProgram, "uCarFrontHalf");
-    gLoc_uAnimA_center = gGl.GetUniformLocation(gRayProgram, "uAnimA_center");
-    gLoc_uAnimA_half = gGl.GetUniformLocation(gRayProgram, "uAnimA_half");
-    gLoc_uAnimB_center = gGl.GetUniformLocation(gRayProgram, "uAnimB_center");
-    gLoc_uAnimB_yaw = gGl.GetUniformLocation(gRayProgram, "uAnimB_yaw");
-    gLoc_uAnimB_half = gGl.GetUniformLocation(gRayProgram, "uAnimB_half");
-    gLoc_uAnimB_wallT = gGl.GetUniformLocation(gRayProgram, "uAnimB_wallT");
 
     if (gLoc_aPos < 0 || gLoc_uCamPos < 0 || gLoc_uRayForward < 0 || gLoc_uRayRight < 0 || gLoc_uRayUp < 0 ||
         gLoc_uResolution < 0 || gLoc_uAspect < 0 || gLoc_uTanHalfFov < 0 ||
@@ -294,11 +269,7 @@ bool initGpuRaycast() {
         gLoc_uHoleB_center < 0 || gLoc_uHoleB_radius < 0 || gLoc_uHoleB_coreRadius < 0 || gLoc_uHoleB_strength < 0 ||
         gLoc_uSceneData < 0 || gLoc_uSceneInvW < 0 || gLoc_uObjectCount < 0 || gLoc_uPointCount < 0 ||
         gLoc_uPointRange0 < 0 || gLoc_uPointPos0 < 0 || gLoc_uPointCol0 < 0 || gLoc_uSunDir < 0 ||
-        gLoc_uSunDiffuse < 0 || gLoc_uAmbient < 0 || gLoc_uPointLightScale < 0 || gLoc_uSkyDayFactor < 0 ||
-        gLoc_uMovingSpherePos0 < 0 || gLoc_uMovingSphereRadius < 0 ||
-        gLoc_uCarRearPos0 < 0 || gLoc_uCarFrontPos0 < 0 || gLoc_uCarRearHalf < 0 || gLoc_uCarFrontHalf < 0 ||
-        gLoc_uAnimA_center < 0 || gLoc_uAnimA_half < 0 ||
-        gLoc_uAnimB_center < 0 || gLoc_uAnimB_yaw < 0 || gLoc_uAnimB_half < 0 || gLoc_uAnimB_wallT < 0) {
+        gLoc_uSunDiffuse < 0 || gLoc_uAmbient < 0 || gLoc_uPointLightScale < 0 || gLoc_uSkyDayFactor < 0) {
         std::cerr << "initGpuRaycast: missing attrib or uniform location\n";
         gGl.DeleteProgram(gRayProgram);
         gRayProgram = 0;
@@ -372,59 +343,6 @@ void raycastSceneGpu() {
     gGl.Uniform1f(gLoc_uHoleB_radius, gWormhole.holeB.warpRadius);
     gGl.Uniform1f(gLoc_uHoleB_coreRadius, gWormhole.holeB.coreRadius);
     gGl.Uniform1f(gLoc_uHoleB_strength, gWormhole.holeB.strength);
-
-    {
-        Vec3 sph[3];
-        movingBezierSpheresCompute(sph);
-        float sphFlat[9];
-        for (int i = 0; i < 3; ++i) {
-            sphFlat[i * 3 + 0] = sph[static_cast<size_t>(i)].x;
-            sphFlat[i * 3 + 1] = sph[static_cast<size_t>(i)].y;
-            sphFlat[i * 3 + 2] = sph[static_cast<size_t>(i)].z;
-        }
-        float rearFlat[9];
-        float frontFlat[9];
-        if (!gSceneVehiclesEnabled) {
-            for (int i = 0; i < 3; ++i) {
-                rearFlat[i * 3 + 0] = 0.0f;
-                rearFlat[i * 3 + 1] = -500.0f;
-                rearFlat[i * 3 + 2] = 0.0f;
-                frontFlat[i * 3 + 0] = 0.0f;
-                frontFlat[i * 3 + 1] = -500.0f;
-                frontFlat[i * 3 + 2] = 0.0f;
-            }
-        } else {
-            Vec3 anchors[3];
-            movingCarsCompute(anchors);
-            for (int i = 0; i < 3; ++i) {
-                CarRigidState st;
-                carRigidState(i, anchors[static_cast<size_t>(i)], st);
-                const Vec3 r = carRearBoxCenterWorld(st);
-                const Vec3 f = carFrontBoxCenterWorld(st);
-                rearFlat[i * 3 + 0] = r.x;
-                rearFlat[i * 3 + 1] = r.y;
-                rearFlat[i * 3 + 2] = r.z;
-                frontFlat[i * 3 + 0] = f.x;
-                frontFlat[i * 3 + 1] = f.y;
-                frontFlat[i * 3 + 2] = f.z;
-            }
-        }
-        gGl.Uniform3fv(gLoc_uMovingSpherePos0, 3, sphFlat);
-        gGl.Uniform1f(gLoc_uMovingSphereRadius, kMovingSphereRadius);
-        gGl.Uniform3fv(gLoc_uCarRearPos0, 3, rearFlat);
-        gGl.Uniform3fv(gLoc_uCarFrontPos0, 3, frontFlat);
-        gGl.Uniform3f(gLoc_uCarRearHalf, kCarRearHalfX, kCarRearHalfY, kCarRearHalfZ);
-        gGl.Uniform3f(gLoc_uCarFrontHalf, kCarFrontHalfX, kCarFrontHalfY, kCarFrontHalfZ);
-
-        const Vec3 tc = lighthouseTowerCenterWorld();
-        const Vec3 hc = lighthouseHeadCenterWorld();
-        gGl.Uniform3f(gLoc_uAnimA_center, tc.x, tc.y, tc.z);
-        gGl.Uniform3f(gLoc_uAnimA_half, kLighthouseTowerHalfXZ, kLighthouseTowerHalfY, kLighthouseTowerHalfXZ);
-        gGl.Uniform3f(gLoc_uAnimB_center, hc.x, hc.y, hc.z);
-        gGl.Uniform1f(gLoc_uAnimB_yaw, lighthouseYawRad());
-        gGl.Uniform1f(gLoc_uAnimB_half, kLighthouseHeadHalf);
-        gGl.Uniform1f(gLoc_uAnimB_wallT, kLighthouseFaceThickness);
-    }
 
     {
         DayNightLighting dn;

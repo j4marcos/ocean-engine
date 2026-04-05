@@ -6,7 +6,8 @@
 #include <GL/gl.h>
 
 // Textura 2D float RGBA: 3 linhas x kSceneDataWidth colunas (uma coluna por objeto).
-inline constexpr int kSceneDataWidth = 96;
+/** Colunas na textura (esferas primeiro, depois caixas). Aumentado para caber cena + primitivas dinâmicas. */
+inline constexpr int kSceneDataWidth = 128;
 inline constexpr int kSceneDataHeight = 3;
 
 struct SceneGpuPacked {

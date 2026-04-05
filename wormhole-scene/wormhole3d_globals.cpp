@@ -6,7 +6,7 @@ bool gUseRaycast = false;
 bool gRaycastGpuReady = false;
 bool gUseGpuRaycast = true;
 
-// Posições de A/B preenchidas em sceneBuildCrossingQuarter().
+// Posições de A/B preenchidas em sceneBuild().
 Wormhole3D gWormhole = {
     {{0.0f, 0.3f, -5.0f}, 1.7f, 0.46f, 0.19f},
     {{2.2f, 11.0f, -7.5f}, 1.7f, 0.46f, 0.19f}
@@ -25,21 +25,11 @@ std::array<int, 3> gBoatHullBoxIndex = {-1, -1, -1};
 std::array<int, 3> gBoatPoleBoxIndex = {-1, -1, -1};
 std::array<int, 3> gBoatBulbSphereIndex = {-1, -1, -1};
 
-// ilha (superfície 3d com heightmap usando real-bumpmap)
-
-// predios (array de objetos predio) (bloco 3d com textura de paredes)
-
-// arvores (array de objetos arvore) (tronco 3d)
-
-// folhas (array de objetos folha) (textura de folha em 8 direções juntas)
-
-// poste (aste 3d com ponto de luz no topo)
-
-// agua do mar (superfície gigante 3d com heightmap usando real-bumpmap) (totalmente refletiva, mas deixa o raio um pouco azul)
-
-
-
-
+std::array<int, 3> gMovingBezierSphereIndex = {-1, -1, -1};
+std::array<int, 3> gCarRearBoxIndex = {-1, -1, -1};
+std::array<int, 3> gCarFrontBoxIndex = {-1, -1, -1};
+int gLighthouseTowerBoxIndex = -1;
+std::array<int, 5> gLighthouseHeadPlateBoxIndex = {-1, -1, -1, -1, -1};
 
 std::vector<unsigned char> gRaycastPixels(kRaycastWidth * kRaycastHeight * 3, 0);
 

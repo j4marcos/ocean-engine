@@ -1,4 +1,4 @@
-#include "scene_entities.h"
+#include "scene_prefabs.h"
 
 #include <algorithm>
 
@@ -12,6 +12,7 @@ void BuildingPrefab::emit(std::vector<Sphere>& spheres, std::vector<Aabb>& boxes
     boxes.push_back({center_, halfSize_, color_});
 }
 
+// poste de madeira na praia
 PostPrefab::PostPrefab(
     const Vec3 baseXZ,
     const float poleHalfHeight,
@@ -33,6 +34,7 @@ void PostPrefab::emit(std::vector<Sphere>& spheres, std::vector<Aabb>& boxes) co
     spheres.push_back({{baseXZ_.x, bulbCy, baseXZ_.z}, kPostBulbRadius, lightColor_});
 }
 
+// poste de madeira no convés de um barco
 DeckPostPrefab::DeckPostPrefab(
     const Vec3 baseXZY,
     const float poleHalfHeight,
