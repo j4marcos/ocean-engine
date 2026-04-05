@@ -55,47 +55,74 @@ uniform float uSceneInvW;
 uniform int uObjectCount;
 
 uniform int uPointCount;
-uniform float uPointRange[8];
-uniform vec3 uPointPos[8];
-uniform vec3 uPointCol[8];
+uniform float uPointRange[32];
+uniform vec3 uPointPos[32];
+uniform vec3 uPointCol[32];
 
 uniform vec3 uSunDir;
 uniform float uSunDiffuse;
 uniform float uAmbient;
 uniform float uPointLightScale;
 uniform float uSkyDayFactor;
-uniform float uSceneTimeSec;
 
-vec3 cubicBezier(float t, vec3 p0, vec3 p1, vec3 p2, vec3 p3) {
-    float u = 1.0 - t;
-    float uu = u * u;
-    float tt = t * t;
-    return p0 * (u * uu) + p1 * (3.0 * uu * t) + p2 * (3.0 * u * tt) + p3 * (tt * t);
-}
+uniform vec3 uMovingSpherePos[3];
+uniform float uMovingSphereRadius;
+uniform vec3 uCarRearPos[3];
+uniform vec3 uCarFrontPos[3];
+uniform vec3 uCarRearHalf;
+uniform vec3 uCarFrontHalf;
+// Geometria animada extra (torre + caixa aberta); iluminação só via uPoint* como os demais pontos.
+uniform vec3 uAnimA_center;
+uniform vec3 uAnimA_half;
+uniform vec3 uAnimB_center;
+uniform float uAnimB_yaw;
+uniform float uAnimB_half;
+uniform float uAnimB_wallT;
 
-// Curvas iguais a `sceneRegisterBirdPaths()` em scene_world.cpp (GLSL 1.20 não lê gBirdBezier).
-vec3 birdPos(int bi) {
-    float tAnim = mod(uSceneTimeSec * 0.12, 1.0);
-    float tb = mod(tAnim + float(bi) * 0.31, 1.0);
-    if (bi == 0) {
-        return cubicBezier(tb,
-            vec3(-6.0, 5.0, -4.0), vec3(-2.0, 7.0, -5.0), vec3(3.0, 6.0, -7.0), vec3(8.0, 4.5, -9.0));
-    }
-    if (bi == 1) {
-        return cubicBezier(tb,
-            vec3(5.0, 6.0, -6.0), vec3(1.0, 8.0, -7.0), vec3(-4.0, 7.0, -8.0), vec3(-9.0, 5.0, -10.0));
-    }
-    return cubicBezier(tb,
-        vec3(0.0, 4.0, -3.0), vec3(4.0, 9.0, -6.0), vec3(-3.0, 8.0, -9.0), vec3(6.0, 5.0, -11.0));
-}
-
-float sdfBirds(vec3 p) {
-    const float br = 0.09;
+float sdfMovingSpheres(vec3 p) {
     float d = 1e10;
     for (int bi = 0; bi < 3; bi++) {
-        d = min(d, sdfSphere(p, birdPos(bi), br));
+        d = min(d, sdfSphere(p, uMovingSpherePos[bi], uMovingSphereRadius));
     }
     return d;
+}
+
+float sdfCars(vec3 p) {
+    float d = 1e10;
+    for (int ci = 0; ci < 3; ci++) {
+        d = min(d, sdfAabb(p, uCarRearPos[ci], uCarRearHalf));
+        d = min(d, sdfAabb(p, uCarFrontPos[ci], uCarFrontHalf));
+    }
+    return d;
+}
+
+float sdfAnimFacePl(vec3 pl, vec3 c, vec3 h) {
+    return sdfAabb(pl, c, h);
+}
+
+float sdfAnimOpenShell(vec3 p, float yaw) {
+    vec3 hc = uAnimB_center;
+    vec3 q = p - hc;
+    float c = cos(-yaw);
+    float s = sin(-yaw);
+    vec3 pl = vec3(c * q.x + s * q.z, q.y, -s * q.x + c * q.z);
+    float h = uAnimB_half;
+    float t = uAnimB_wallT;
+    float d = 1e10;
+    d = min(d, sdfAnimFacePl(pl, vec3(-h, 0.0, 0.0), vec3(t, h, h)));
+    d = min(d, sdfAnimFacePl(pl, vec3(0.0, 0.0, h), vec3(h, h, t)));
+    d = min(d, sdfAnimFacePl(pl, vec3(0.0, 0.0, -h), vec3(h, h, t)));
+    d = min(d, sdfAnimFacePl(pl, vec3(0.0, h, 0.0), vec3(h, t, h)));
+    d = min(d, sdfAnimFacePl(pl, vec3(0.0, -h, 0.0), vec3(h, t, h)));
+    return d;
+}
+
+float sdfAnimTower(vec3 p) {
+    return sdfAabb(p, uAnimA_center, uAnimA_half);
+}
+
+float sdfAnimExtraGeom(vec3 p) {
+    return min(sdfAnimTower(p), sdfAnimOpenShell(p, uAnimB_yaw));
 }
 
 vec3 warpFieldFromHole(vec3 p, vec3 center, float radius, float strength) {
@@ -114,7 +141,9 @@ vec3 warpField(vec3 p) {
 
 float sdfScene(vec3 p) {
     float d = sdfFloor(p);
-    d = min(d, sdfBirds(p));
+    d = min(d, sdfMovingSpheres(p));
+    d = min(d, sdfCars(p));
+    d = min(d, sdfAnimExtraGeom(p));
     for (int i = 0; i < 96; i++) {
         if (i >= uObjectCount) {
             break;
@@ -142,10 +171,35 @@ vec3 sceneColorAt(vec3 p) {
     float bestD = sdfFloor(p);
     vec3 color = vec3(0.35, 0.37, 0.61);
     {
-        float db = sdfBirds(p);
-        if (db < bestD) {
-            bestD = db;
-            color = vec3(0.18, 0.16, 0.14);
+        float dm = sdfMovingSpheres(p);
+        if (dm < bestD) {
+            bestD = dm;
+            color = vec3(1.0, 1.0, 1.0);
+        }
+    }
+    {
+        float dr = 1e10;
+        float df = 1e10;
+        for (int ci = 0; ci < 3; ci++) {
+            dr = min(dr, sdfAabb(p, uCarRearPos[ci], uCarRearHalf));
+            df = min(df, sdfAabb(p, uCarFrontPos[ci], uCarFrontHalf));
+        }
+        float dc = min(dr, df);
+        if (dc < bestD) {
+            bestD = dc;
+            color = df < dr ? vec3(0.92, 0.12, 0.1) : vec3(0.9, 0.13, 0.11);
+        }
+    }
+    {
+        float dlt = sdfAnimTower(p);
+        if (dlt < bestD) {
+            bestD = dlt;
+            color = vec3(0.9, 0.89, 0.86);
+        }
+        float dlh = sdfAnimOpenShell(p, uAnimB_yaw);
+        if (dlh < bestD) {
+            bestD = dlh;
+            color = vec3(0.72, 0.78, 0.86);
         }
     }
     for (int i = 0; i < 96; i++) {
@@ -221,10 +275,11 @@ vec3 skyColor(vec3 dir) {
     return mix(base, portalTint + base * 0.2, blend);
 }
 
+// Reflexo só no plano oceano (sdfFloor == sdfScene). Lajes finas: dScene≈0, df≈0,04 — não coincidir (ver kOceanFloorMatchEps em scene_entities.h).
 bool isInfiniteFloorAt(vec3 p) {
     float df = sdfFloor(p);
     float dScene = sdfScene(p);
-    return abs(df - dScene) < 0.04;
+    return abs(df - dScene) < 0.001;
 }
 
 // |o + t*d - c|^2 = r^2 com d não necessariamente unitário (drivers antigos / precisão).
@@ -290,6 +345,35 @@ float rayAabbEnterT(vec3 o, vec3 d, vec3 c, vec3 h, float tMinEps, float maxDist
     return tCand;
 }
 
+// Casca da cabeça (5 placas, +X aberto): 1 = raio passa; 0 = bloqueado por parede.
+float lighthouseHeadShellVis(vec3 o, vec3 dir, float tMin, float maxT) {
+    vec3 hc = uAnimB_center;
+    float yaw = uAnimB_yaw;
+    float h = uAnimB_half;
+    float wt = uAnimB_wallT;
+    vec3 q = o - hc;
+    float c = cos(-yaw);
+    float s = sin(-yaw);
+    vec3 pl_o = vec3(c * q.x + s * q.z, q.y, -s * q.x + c * q.z);
+    vec3 pl_d = vec3(c * dir.x + s * dir.z, dir.y, -s * dir.x + c * dir.z);
+    if (rayAabbEnterT(pl_o, pl_d, vec3(-h, 0.0, 0.0), vec3(wt, h, h), tMin, maxT) >= 0.0) {
+        return 0.0;
+    }
+    if (rayAabbEnterT(pl_o, pl_d, vec3(0.0, 0.0, h), vec3(h, h, wt), tMin, maxT) >= 0.0) {
+        return 0.0;
+    }
+    if (rayAabbEnterT(pl_o, pl_d, vec3(0.0, 0.0, -h), vec3(h, h, wt), tMin, maxT) >= 0.0) {
+        return 0.0;
+    }
+    if (rayAabbEnterT(pl_o, pl_d, vec3(0.0, h, 0.0), vec3(h, wt, h), tMin, maxT) >= 0.0) {
+        return 0.0;
+    }
+    if (rayAabbEnterT(pl_o, pl_d, vec3(0.0, -h, 0.0), vec3(h, wt, h), tMin, maxT) >= 0.0) {
+        return 0.0;
+    }
+    return 1.0;
+}
+
 float sunShadowStraight(vec3 p, vec3 n, vec3 sunDir) {
     float kBias = 0.06;
     float kTMin = 0.04;
@@ -317,9 +401,11 @@ float sunShadowStraight(vec3 p, vec3 n, vec3 sunDir) {
         vec3 center = vec3(t0.g, t0.b, t0.a);
         if (t0.r < 0.5) {
             float rad = t1.r;
-            float tS = raySphereMinT(o, sunDir, center, rad, kTMin);
-            if (tS > 0.0 && tS < kMax) {
-                return 0.0;
+            if (rad < 45.0) {
+                float tS = raySphereMinT(o, sunDir, center, rad, kTMin);
+                if (tS > 0.0 && tS < kMax) {
+                    return 0.0;
+                }
             }
         } else {
             vec3 halfSize = vec3(t1.r, t1.g, t1.b);
@@ -330,11 +416,27 @@ float sunShadowStraight(vec3 p, vec3 n, vec3 sunDir) {
         }
     }
     for (int bi = 0; bi < 3; bi++) {
-        vec3 bc = birdPos(bi);
-        float tSb = raySphereMinT(o, sunDir, bc, 0.09, kTMin);
+        float tSb = raySphereMinT(o, sunDir, uMovingSpherePos[bi], uMovingSphereRadius, kTMin);
         if (tSb > 0.0 && tSb < kMax) {
             return 0.0;
         }
+    }
+    for (int ci = 0; ci < 3; ci++) {
+        float tR = rayAabbEnterT(o, sunDir, uCarRearPos[ci], uCarRearHalf, kTMin, kMax);
+        if (tR >= 0.0) {
+            return 0.0;
+        }
+        float tF = rayAabbEnterT(o, sunDir, uCarFrontPos[ci], uCarFrontHalf, kTMin, kMax);
+        if (tF >= 0.0) {
+            return 0.0;
+        }
+    }
+    float tAnimA = rayAabbEnterT(o, sunDir, uAnimA_center, uAnimA_half, kTMin, kMax);
+    if (tAnimA >= 0.0) {
+        return 0.0;
+    }
+    if (lighthouseHeadShellVis(o, sunDir, kTMin, kMax) < 0.5) {
+        return 0.0;
     }
     return 1.0;
 }
@@ -377,9 +479,11 @@ float pointShadowStraight(vec3 p, vec3 n, vec3 lightPos) {
         vec3 center = vec3(t0.g, t0.b, t0.a);
         if (t0.r < 0.5) {
             float rad = t1.r;
-            float tS = raySphereMinT(o, Ld, center, rad, kTMin);
-            if (tS > 0.0 && tS < maxT) {
-                return 0.0;
+            if (rad < 45.0) {
+                float tS = raySphereMinT(o, Ld, center, rad, kTMin);
+                if (tS > 0.0 && tS < maxT) {
+                    return 0.0;
+                }
             }
         } else {
             vec3 halfSize = vec3(t1.r, t1.g, t1.b);
@@ -390,11 +494,27 @@ float pointShadowStraight(vec3 p, vec3 n, vec3 lightPos) {
         }
     }
     for (int bi = 0; bi < 3; bi++) {
-        vec3 bc = birdPos(bi);
-        float tSb = raySphereMinT(o, Ld, bc, 0.09, kTMin);
+        float tSb = raySphereMinT(o, Ld, uMovingSpherePos[bi], uMovingSphereRadius, kTMin);
         if (tSb > 0.0 && tSb < maxT) {
             return 0.0;
         }
+    }
+    for (int ci = 0; ci < 3; ci++) {
+        float tR = rayAabbEnterT(o, Ld, uCarRearPos[ci], uCarRearHalf, kTMin, maxT);
+        if (tR >= 0.0) {
+            return 0.0;
+        }
+        float tF = rayAabbEnterT(o, Ld, uCarFrontPos[ci], uCarFrontHalf, kTMin, maxT);
+        if (tF >= 0.0) {
+            return 0.0;
+        }
+    }
+    float tAnimAp = rayAabbEnterT(o, Ld, uAnimA_center, uAnimA_half, kTMin, maxT);
+    if (tAnimAp >= 0.0) {
+        return 0.0;
+    }
+    if (lighthouseHeadShellVis(o, Ld, kTMin, maxT) < 0.5) {
+        return 0.0;
     }
     return 1.0;
 }
@@ -407,7 +527,7 @@ vec3 shadeSurfaceOpaque(vec3 p, vec3 n, vec3 base) {
     }
     float sun = clampf(dot(n, sunDir), 0.0, 1.0) * uSunDiffuse * sunMul;
     vec3 acc = base * (uAmbient + sun);
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < 32; i++) {
         if (i >= uPointCount) {
             break;
         }
@@ -423,7 +543,8 @@ vec3 shadeSurfaceOpaque(vec3 p, vec3 n, vec3 base) {
             plMul = pointShadowStraight(p, n, uPointPos[i]);
         }
         float edge = 1.0 - clampf(d / (uPointRange[i] * 2.0), 0.0, 1.0);
-        float atten = edge * edge / (1.0 + d * d * 0.032);
+        float dr = d / max(uPointRange[i], 1e-5);
+        float atten = edge * edge / (1.0 + dr * dr);
         vec3 tint = uPointCol[i] * (ndl * atten * 0.52 * uPointLightScale * plMul);
         acc += base * tint;
     }

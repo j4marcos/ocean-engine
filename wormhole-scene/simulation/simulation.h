@@ -13,9 +13,13 @@ Vec3 abs3(const Vec3& v);
 Vec3 max3(const Vec3& v, float m);
 
 Vec3 calculateBezierPoint(float t, const Vec3& p0, const Vec3& p1, const Vec3& p2, const Vec3& p3);
+Vec3 calculateBezierDerivative(float t, const Vec3& p0, const Vec3& p1, const Vec3& p2, const Vec3& p3);
 
-/** Três pássaros em curvas de Bézier (`gBirdBezier` preenchido em `sceneBuildCrossingQuarter`). */
-void birdComputePositions(Vec3 birds[3]);
+/** Esferas em curvas Bézier (`gBezierMovingSpheres` em `sceneBuildCrossingQuarter`). */
+void movingBezierSpheresCompute(Vec3 spheres[3]);
+/** Carros: praia, Bézier em `gBezierCarBeach`, volta contínua; lento no meio (ease no parâmetro). */
+void carBeachMotionSample(int carIndex, Vec3& outAnchor, float& outForwardX, float& outForwardZ);
+void movingCarsCompute(Vec3 centers[3]);
 
 Vec3 rayForward();
 Vec3 rayRight();
@@ -36,6 +40,9 @@ Vec3 teleportToOppositeSide(
     const WarpHole3D& source,
     const WarpHole3D& destination,
     float margin);
+
+/** Mesma regra que `traceRay`: ao entrar no núcleo (de fora para dentro), salta ao outro buraco. */
+void cameraApplyWormholeTeleportIfNeeded(const Vec3& positionBefore, Vec3& positionAfter);
 
 struct DayNightLighting {
     Vec3 sunDir{};

@@ -5,13 +5,15 @@ CXX      ?= g++
 CXXFLAGS ?= -std=c++17 -O2 -Wall -Wextra -pedantic
 LDFLAGS  := -lGL -lGLU -lglut -ldl
 
-INCLUDES := -I. -Isimulation -Itexture -Ioverlay -Iraster -Iraycast -Iscene
+INCLUDES := -I. -Iaudio -Isimulation -Itexture -Ioverlay -Iraster -Iraycast -Iscene
 
 SRCS := \
+	audio/wormhole3d_audio.cpp \
 	wormhole3d_globals.cpp \
 	scene/scene_gpu.cpp \
 	scene/scene_entities.cpp \
 	scene/scene_world.cpp \
+	scene/scene_moving.cpp \
 	simulation/simulation.cpp \
 	texture/wormhole3d_init.cpp \
 	raster/wormhole3d_raster.cpp \

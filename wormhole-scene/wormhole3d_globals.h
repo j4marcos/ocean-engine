@@ -21,11 +21,17 @@ extern Camera gCamera;
 extern std::vector<Sphere> gSpheres;
 extern std::vector<Aabb> gBoxes;
 
-inline constexpr int kMaxPointLights = 8;
+inline constexpr int kMaxPointLights = 1000;
 extern std::vector<PointLight> gPointLights;
 
-/** Preenchido em `sceneBuildCrossingQuarter()` — usado em simulação (pássaros) e deve coincidir com `birdPos` no GPU shader. */
-extern std::array<BirdBezierPath, 3> gBirdBezier;
+/** Preenchido em `sceneBuildCrossingQuarter()` — esferas em curvas Bézier (render só vê SDF). */
+extern std::array<BezierPath4, 3> gBezierMovingSpheres;
+/** Curva da praia para os carros (`carBeachMotionSample`); deve ter 3 faixas Z em código. */
+extern BezierPath4 gBezierCarBeach;
+/** Barcos animados: índices em `gBoxes`/`gSpheres` (3 barcos). */
+extern std::array<int, 3> gBoatHullBoxIndex;
+extern std::array<int, 3> gBoatPoleBoxIndex;
+extern std::array<int, 3> gBoatBulbSphereIndex;
 
 extern std::vector<unsigned char> gRaycastPixels;
 

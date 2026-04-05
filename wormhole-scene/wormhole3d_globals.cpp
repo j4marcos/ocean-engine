@@ -1,24 +1,29 @@
 #include "wormhole3d_globals.h"
 
-int gWindowWidth = 1280;
-int gWindowHeight = 720;
+int gWindowWidth = kRaycastWidth * 2;
+int gWindowHeight = kRaycastHeight * 2;
 bool gUseRaycast = false;
 bool gRaycastGpuReady = false;
 bool gUseGpuRaycast = true;
 
 // Posições de A/B preenchidas em sceneBuildCrossingQuarter().
 Wormhole3D gWormhole = {
-    {{0.0f, 0.52f, -5.0f}, 1.45f, 0.46f, 0.19f},
-    {{2.2f, 11.0f, -7.5f}, 1.45f, 0.46f, 0.19f}
+    {{0.0f, 0.3f, -5.0f}, 1.7f, 0.46f, 0.19f},
+    {{2.2f, 11.0f, -7.5f}, 1.7f, 0.46f, 0.19f}
 };
 
-Camera gCamera = {{0.0f, 0.9f, 2.2f}, 0.0f, -0.15f, 58.0f};
+// Olha para -Z (buraco B ao longe); costas para +Z (rua com buraco A, prédios, montanhas).
+Camera gCamera = {{0.0f, 0.95f, -9.0f}, 0.0f, -0.12f, 58.0f};
 
 std::vector<Sphere> gSpheres;
 std::vector<Aabb> gBoxes;
 std::vector<PointLight> gPointLights;
 
-std::array<BirdBezierPath, 3> gBirdBezier = {};
+std::array<BezierPath4, 3> gBezierMovingSpheres = {};
+BezierPath4 gBezierCarBeach = {};
+std::array<int, 3> gBoatHullBoxIndex = {-1, -1, -1};
+std::array<int, 3> gBoatPoleBoxIndex = {-1, -1, -1};
+std::array<int, 3> gBoatBulbSphereIndex = {-1, -1, -1};
 
 // ilha (superfície 3d com heightmap usando real-bumpmap)
 
@@ -44,10 +49,10 @@ float gFpsDisplay = 0.0f;
 
 bool gAnimatingCamera = false;
 float gCameraT = 0.0f;
-Vec3 P0 = {0.0f, 0.9f, 2.2f};
-Vec3 P1 = {-1.6f, 0.45f, -1.0f};
-Vec3 P2 = {-1.6f, 0.45f, -4.2f};
-Vec3 P3 = {2.0f, 11.0f, -7.5f};
+Vec3 P0 = {0.0f, 0.95f, -9.0f};
+Vec3 P1 = {-1.4f, 0.5f, -11.0f};
+Vec3 P2 = {1.2f, 0.55f, -13.0f};
+Vec3 P3 = {0.0f, 11.0f, -50.0f};
 
 float gSceneTimeSec = 0.0f;
 int gSceneTimeMs = 0;

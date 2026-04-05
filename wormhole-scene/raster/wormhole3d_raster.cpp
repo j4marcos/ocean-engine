@@ -2,6 +2,9 @@
 #include "wormhole3d_globals.h"
 #include "wormhole3d_simulation.h"
 #include "scene_entities.h"
+#include "scene_moving.h"
+
+#include <cmath>
 
 #include <GL/glut.h>
 
@@ -20,24 +23,90 @@ void drawSceneFloor() {
     glEnd();
 }
 
-void drawBirdsBezier() {
+void drawMovingBezierSpheres() {
     glDisable(GL_LIGHTING);
     glDisable(GL_TEXTURE_2D);
-    Vec3 birds[3];
-    birdComputePositions(birds);
-    glColor3f(kSceneBirdMaterial.r, kSceneBirdMaterial.g, kSceneBirdMaterial.b);
+    Vec3 sph[3];
+    movingBezierSpheresCompute(sph);
+    glColor3f(kMovingSphereMaterial.r, kMovingSphereMaterial.g, kMovingSphereMaterial.b);
     for (int b = 0; b < 3; ++b) {
-        const Vec3& p = birds[b];
+        const Vec3& p = sph[b];
         glPushMatrix();
         glTranslatef(p.x, p.y, p.z);
-        glutSolidSphere(static_cast<double>(kSceneBirdRadius), 10, 10);
+        glutSolidSphere(static_cast<double>(kMovingSphereRadius), 10, 10);
         glPopMatrix();
     }
+}
+
+void drawMovingCars() {
+    glDisable(GL_LIGHTING);
+    Vec3 anchors[3];
+    movingCarsCompute(anchors);
+    for (int i = 0; i < 3; ++i) {
+        CarRigidState st;
+        carRigidState(i, anchors[i], st);
+        const Vec3 rr = carRearBoxCenterWorld(st);
+        glColor3f(0.9f, 0.13f, 0.11f);
+        glPushMatrix();
+        glTranslatef(rr.x, rr.y, rr.z);
+        glScalef(kCarRearHalfX * 2.0f, kCarRearHalfY * 2.0f, kCarRearHalfZ * 2.0f);
+        glutSolidCube(1.0);
+        glPopMatrix();
+        const Vec3 ff = carFrontBoxCenterWorld(st);
+        glColor3f(kMovingCarMaterial.r, kMovingCarMaterial.g, kMovingCarMaterial.b);
+        glPushMatrix();
+        glTranslatef(ff.x, ff.y, ff.z);
+        glScalef(kCarFrontHalfX * 2.0f, kCarFrontHalfY * 2.0f, kCarFrontHalfZ * 2.0f);
+        glutSolidCube(1.0);
+        glPopMatrix();
+    }
+}
+
+/** Mesma geometria que o SDF do raycast: pilar + caixa aberta (5 faces) a girar; não é gBoxes. */
+void drawLighthouseRaster() {
+    glDisable(GL_LIGHTING);
+    const Vec3 tc = lighthouseTowerCenterWorld();
+    const Vec3 hc = lighthouseHeadCenterWorld();
+    const float yawDeg = lighthouseYawRad() * (180.0f / static_cast<float>(M_PI));
+    const float h = kLighthouseHeadHalf;
+    const float t = kLighthouseFaceThickness;
+
+    glColor3f(0.9f, 0.89f, 0.86f);
+    glPushMatrix();
+    glTranslatef(tc.x, tc.y, tc.z);
+    glScalef(kLighthouseTowerHalfXZ * 2.0f, kLighthouseTowerHalfY * 2.0f, kLighthouseTowerHalfXZ * 2.0f);
+    glutSolidCube(1.0);
+    glPopMatrix();
+
+    glColor3f(0.72f, 0.78f, 0.86f);
+    glPushMatrix();
+    glTranslatef(hc.x, hc.y, hc.z);
+    glRotatef(static_cast<double>(yawDeg), 0.0, 1.0, 0.0);
+    auto plate = [](float cx, float cy, float cz, float hx, float hy, float hz) {
+        glPushMatrix();
+        glTranslatef(cx, cy, cz);
+        glScalef(hx * 2.0f, hy * 2.0f, hz * 2.0f);
+        glutSolidCube(1.0);
+        glPopMatrix();
+    };
+    plate(-h, 0.0f, 0.0f, t, h, h);
+    plate(0.0f, 0.0f, h, h, h, t);
+    plate(0.0f, 0.0f, -h, h, h, t);
+    plate(0.0f, h, 0.0f, h, t, h);
+    plate(0.0f, -h, 0.0f, h, t, h);
+    glPopMatrix();
+
+    glColor3f(1.0f, 0.98f, 0.92f);
+    glPushMatrix();
+    glTranslatef(hc.x, hc.y, hc.z);
+    glutSolidSphere(0.12, 10, 8);
+    glPopMatrix();
 }
 
 } // namespace
 
 void rasterScene() {
+    sceneUpdateDynamicElements();
     glEnable(GL_DEPTH_TEST);
     glDisable(GL_LIGHTING);
     glDisable(GL_COLOR_MATERIAL);
@@ -110,5 +179,7 @@ void rasterScene() {
     glutSolidSphere(gWormhole.holeB.coreRadius, 20, 16);
     glPopMatrix();
 
-    drawBirdsBezier();
+    drawMovingBezierSpheres();
+    drawMovingCars();
+    drawLighthouseRaster();
 }

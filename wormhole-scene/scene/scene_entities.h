@@ -17,8 +17,10 @@ inline constexpr float kOceanFresnelMix = 0.68f;
 inline constexpr float kOceanFresnelPower = 4.0f;
 /** Offset ao longo da normal para o raio refletido não re-acertar o plano. */
 inline constexpr float kOceanReflectBias = 0.14f;
+/** Só aplica reflexo de “água” quando o SDF do plano coincide com o da cena (evita lajes finas tipo areia). */
+inline constexpr float kOceanFloorMatchEps = 0.001f;
 inline constexpr float kSceneBirdRadius = 0.09f;
-inline constexpr RGBA kSceneBirdMaterial = {0.18f, 0.16f, 0.14f, 1.0f};
+inline constexpr RGBA kSceneBirdMaterial = {1.0f, 1.0f, 1.0f, 1.0f};
 
 // Poste: esfera do lampião (SDF) e luz pontual — a luz fica acima do topo da esfera para não ficar dentro da malha.
 inline constexpr float kPostBulbRadius = 0.09f;
@@ -31,6 +33,15 @@ inline float postBulbCenterY(float poleHalfHeight) {
 
 inline float postPointLightY(float poleHalfHeight) {
     return postBulbCenterY(poleHalfHeight) + kPostBulbRadius + kPostLightClearanceAboveBulb;
+}
+
+/** Base do poste no solo (kSceneGroundY); bulbo e luz — mesmo critério que `PostPrefab`. */
+inline float postBulbCenterYFromBaseY(float baseY, float poleHalfHeight) {
+    return baseY + poleHalfHeight * 2.0f + kPostBulbStemOffset - kPostBulbRadius;
+}
+
+inline float postPointLightYFromBaseY(float baseY, float poleHalfHeight) {
+    return postBulbCenterYFromBaseY(baseY, poleHalfHeight) + kPostBulbRadius + kPostLightClearanceAboveBulb;
 }
 
 // Entidade abstrata: prefabs geram esferas e AABBs consumidos pelo raycast e raster.
@@ -62,6 +73,26 @@ public:
 
 private:
     Vec3 baseXZ_;
+    float poleHalfH_;
+    float thick_;
+    RGBA poleColor_;
+    RGBA lightColor_;
+};
+
+/** Poste com base no plano Y dado (ex.: convés): `baseXZY` é o pé do poste no convés (x, y_topo, z). */
+class DeckPostPrefab final : public SceneEntity {
+public:
+    DeckPostPrefab(
+        Vec3 baseXZY,
+        float poleHalfHeight,
+        float poleThickness,
+        const RGBA& poleColor,
+        const RGBA& lightColor);
+
+    void emit(std::vector<Sphere>& spheres, std::vector<Aabb>& boxes) const override;
+
+private:
+    Vec3 base_;
     float poleHalfH_;
     float thick_;
     RGBA poleColor_;

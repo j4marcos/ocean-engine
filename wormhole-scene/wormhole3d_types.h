@@ -20,6 +20,7 @@ struct WarpHole3D {
     float strength;
 };
 
+
 struct Wormhole3D {
     WarpHole3D holeA;
     WarpHole3D holeB;
@@ -51,8 +52,8 @@ struct PointLight {
     float range;
 };
 
-/** Curva de Bézier cúbica (pássaros): controlos declarados em `scene_world.cpp`. */
-struct BirdBezierPath {
+/** Curva de Bézier cúbica (figuras móveis genéricas): controlos em `scene_world.cpp`. */
+struct BezierPath4 {
     Vec3 p0;
     Vec3 p1;
     Vec3 p2;

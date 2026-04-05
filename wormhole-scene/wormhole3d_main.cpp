@@ -1,3 +1,4 @@
+#include "wormhole3d_audio.h"
 #include "wormhole3d_globals.h"
 #include "scene_world.h"
 #include "wormhole3d_init.h"
@@ -18,7 +19,10 @@ static void display() {
     const int nowMs = glutGet(GLUT_ELAPSED_TIME);
     gSceneTimeMs = nowMs;
     gSceneTimeSec = static_cast<float>(nowMs) * 0.001f;
-    if (gDayNightAuto) {
+    // Offset de meio ciclo: t=0 da app corresponde a fase "meio-dia" (céu claro), não meia-noite.
+    if (gDayNightAuto && gDayNightCycleMs > 0) {
+        gDayNightEffectiveMs = nowMs + gDayNightCycleMs / 2;
+    } else if (gDayNightAuto) {
         gDayNightEffectiveMs = nowMs;
     }
     if (gFpsLastMs == 0) {
@@ -40,7 +44,9 @@ static void display() {
             gAnimatingCamera = false;
         }
 
+        const Vec3 prevCam = gCamera.position;
         gCamera.position = calculateBezierPoint(gCameraT, P0, P1, P2, P3);
+        cameraApplyWormholeTeleportIfNeeded(prevCam, gCamera.position);
         glutPostRedisplay();
     }
 
@@ -105,21 +111,33 @@ static void keyboard(const unsigned char key, const int x, const int y) {
 
     switch (key) {
         case 'w':
-        case 'W':
+        case 'W': {
+            const Vec3 prev = gCamera.position;
             gCamera.position = add3(gCamera.position, scale3(forward, moveStep));
+            cameraApplyWormholeTeleportIfNeeded(prev, gCamera.position);
             break;
+        }
         case 's':
-        case 'S':
+        case 'S': {
+            const Vec3 prev = gCamera.position;
             gCamera.position = sub3(gCamera.position, scale3(forward, moveStep));
+            cameraApplyWormholeTeleportIfNeeded(prev, gCamera.position);
             break;
+        }
         case 'd':
-        case 'D':
+        case 'D': {
+            const Vec3 prev = gCamera.position;
             gCamera.position = sub3(gCamera.position, scale3(right, moveStep));
+            cameraApplyWormholeTeleportIfNeeded(prev, gCamera.position);
             break;
+        }
         case 'a':
-        case 'A':
+        case 'A': {
+            const Vec3 prev = gCamera.position;
             gCamera.position = add3(gCamera.position, scale3(right, moveStep));
+            cameraApplyWormholeTeleportIfNeeded(prev, gCamera.position);
             break;
+        }
         case 'r':
         case 'R':
             gWormhole.holeA.strength = clampf(gWormhole.holeA.strength + 0.02f, 0.02f, 1.2f);
@@ -132,23 +150,35 @@ static void keyboard(const unsigned char key, const int x, const int y) {
             break;
         case '[':
             if (gDayNightAuto) {
-                gDayNightEffectiveMs = gSceneTimeMs;
+                gDayNightEffectiveMs =
+                    gDayNightCycleMs > 0 ? gSceneTimeMs + gDayNightCycleMs / 2 : gSceneTimeMs;
                 gDayNightAuto = false;
             }
             gDayNightEffectiveMs -= gDayNightStepMs;
+            if (gDayNightCycleMs > 0) {
+                gDayNightEffectiveMs %= gDayNightCycleMs;
+                if (gDayNightEffectiveMs < 0) {
+                    gDayNightEffectiveMs += gDayNightCycleMs;
+                }
+            }
             break;
         case ']':
             if (gDayNightAuto) {
-                gDayNightEffectiveMs = gSceneTimeMs;
+                gDayNightEffectiveMs =
+                    gDayNightCycleMs > 0 ? gSceneTimeMs + gDayNightCycleMs / 2 : gSceneTimeMs;
                 gDayNightAuto = false;
             }
             gDayNightEffectiveMs += gDayNightStepMs;
+            if (gDayNightCycleMs > 0) {
+                gDayNightEffectiveMs %= gDayNightCycleMs;
+            }
             break;
         case 't':
         case 'T':
             if (gDayNightAuto) {
                 gDayNightAuto = false;
-                gDayNightEffectiveMs = gSceneTimeMs;
+                gDayNightEffectiveMs =
+                    gDayNightCycleMs > 0 ? gSceneTimeMs + gDayNightCycleMs / 2 : gSceneTimeMs;
             } else {
                 gDayNightAuto = true;
             }
@@ -203,6 +233,8 @@ int main(int argc, char** argv) {
     }
 
     initAppGl();
+
+    wormhole3dStartBackgroundMusic(argv[0]);
 
     glutDisplayFunc(display);
     glutReshapeFunc(reshape);

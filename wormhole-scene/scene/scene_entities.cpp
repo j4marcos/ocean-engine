@@ -33,6 +33,27 @@ void PostPrefab::emit(std::vector<Sphere>& spheres, std::vector<Aabb>& boxes) co
     spheres.push_back({{baseXZ_.x, bulbCy, baseXZ_.z}, kPostBulbRadius, lightColor_});
 }
 
+DeckPostPrefab::DeckPostPrefab(
+    const Vec3 baseXZY,
+    const float poleHalfHeight,
+    const float poleThickness,
+    const RGBA& poleColor,
+    const RGBA& lightColor
+)
+    : base_{baseXZY},
+      poleHalfH_{poleHalfHeight},
+      thick_{poleThickness},
+      poleColor_{poleColor},
+      lightColor_{lightColor} {}
+
+void DeckPostPrefab::emit(std::vector<Sphere>& spheres, std::vector<Aabb>& boxes) const {
+    const Vec3 poleCenter = {base_.x, base_.y + poleHalfH_, base_.z};
+    boxes.push_back({poleCenter, {thick_, poleHalfH_, thick_}, poleColor_});
+
+    const float bulbCy = postBulbCenterYFromBaseY(base_.y, poleHalfH_);
+    spheres.push_back({{base_.x, bulbCy, base_.z}, kPostBulbRadius, lightColor_});
+}
+
 TreePrefab::TreePrefab(const Vec3 baseXZ, const RGBA& trunkColor, const RGBA& leafColor)
     : baseXZ_{baseXZ}, trunkColor_{trunkColor}, leafColor_{leafColor} {}
 

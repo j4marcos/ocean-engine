@@ -1,6 +1,7 @@
 #include "wormhole3d_simulation.h"
 #include "wormhole3d_globals.h"
 #include "scene_entities.h"
+#include "scene_moving.h"
 
 #include <algorithm>
 #include <cmath>
@@ -59,6 +60,51 @@ Vec3 calculateBezierPoint(const float t, const Vec3& p0, const Vec3& p1, const V
     return p;
 }
 
+Vec3 calculateBezierDerivative(const float t, const Vec3& p0, const Vec3& p1, const Vec3& p2, const Vec3& p3) {
+    const float u = 1.0f - t;
+    const float uu = u * u;
+    const float tt = t * t;
+    Vec3 d;
+    d.x = 3.0f * uu * (p1.x - p0.x) + 6.0f * u * t * (p2.x - p1.x) + 3.0f * tt * (p3.x - p2.x);
+    d.y = 3.0f * uu * (p1.y - p0.y) + 6.0f * u * t * (p2.y - p1.y) + 3.0f * tt * (p3.y - p2.y);
+    d.z = 3.0f * uu * (p1.z - p0.z) + 6.0f * u * t * (p2.z - p1.z) + 3.0f * tt * (p3.z - p2.z);
+    return d;
+}
+
+void carBeachMotionSample(const int carIndex, Vec3& outAnchor, float& outForwardX, float& outForwardZ) {
+    const float yA = carAnchorYWorld();
+    const BezierPath4& path = gBezierCarBeach;
+    static constexpr float kPhase[kMovingCarCount] = {0.0f, 1.0f / 3.0f, 2.0f / 3.0f};
+    float u = std::fmod(gSceneTimeSec / kCarBeachLapSec + kPhase[carIndex], 1.0f);
+    if (u < 0.0f) {
+        u += 1.0f;
+    }
+    const float twoPi = 2.0f * 3.14159265359f;
+    const float tParam = u + kCarBeachEaseMiddle * std::sin(twoPi * u) / twoPi;
+
+    const Vec3 p = calculateBezierPoint(tParam, path.p0, path.p1, path.p2, path.p3);
+    Vec3 d = calculateBezierDerivative(tParam, path.p0, path.p1, path.p2, path.p3);
+    d.y = 0.0f;
+    const float lenH = std::sqrt(d.x * d.x + d.z * d.z);
+    if (lenH <= 1e-5f) {
+        outForwardX = 1.0f;
+        outForwardZ = 0.0f;
+    } else {
+        outForwardX = d.x / lenH;
+        outForwardZ = d.z / lenH;
+    }
+    const float laneShift = kCarLaneZ[carIndex] - kCarRoadPathCenterZ;
+    outAnchor = {p.x, yA, p.z + laneShift};
+}
+
+void movingCarsCompute(Vec3 centers[3]) {
+    for (int i = 0; i < kMovingCarCount; ++i) {
+        float tx = 0.0f;
+        float tz = 0.0f;
+        carBeachMotionSample(i, centers[i], tx, tz);
+    }
+}
+
 Vec3 rayForward() {
     const float cp = std::cos(gCamera.pitchVerticalDegree);
     return normalize3({
@@ -112,31 +158,81 @@ float SignedDistanceFloor(const Vec3& p) {
     return p.y + 1.15f;
 }
 
-void birdComputePositions(Vec3 birds[3]) {
+void movingBezierSpheresCompute(Vec3 spheres[3]) {
     const float t = std::fmod(gSceneTimeSec * 0.12f, 1.0f);
-    for (int b = 0; b < 3; ++b) {
+    for (int b = 0; b < kMovingBezierSphereCount; ++b) {
         const float tb = std::fmod(t + static_cast<float>(b) * 0.31f, 1.0f);
-        const BirdBezierPath& path = gBirdBezier[static_cast<size_t>(b)];
-        birds[b] = calculateBezierPoint(tb, path.p0, path.p1, path.p2, path.p3);
+        const BezierPath4& path = gBezierMovingSpheres[static_cast<size_t>(b)];
+        spheres[b] = calculateBezierPoint(tb, path.p0, path.p1, path.p2, path.p3);
     }
 }
 
-namespace {
+static float sdfLhFacePl(const Vec3& pl, const Vec3& c, const Vec3& h) {
+    const Aabb b = {c, h, {0.0f, 0.0f, 0.0f, 0.0f}};
+    return SignedDistanceAabb(pl, b);
+}
 
-float signedDistanceBirds(const Vec3& p) {
-    Vec3 birds[3];
-    birdComputePositions(birds);
+static float signedDistanceLighthouseHead(const Vec3& p, const float yaw) {
+    const Vec3 hc = lighthouseHeadCenterWorld();
+    const Vec3 q = sub3(p, hc);
+    const float c = std::cos(-yaw);
+    const float s = std::sin(-yaw);
+    const Vec3 pl = {c * q.x + s * q.z, q.y, -s * q.x + c * q.z};
+    const float h = kLighthouseHeadHalf;
+    const float t = kLighthouseFaceThickness;
     float d = 1e10f;
-    for (int i = 0; i < 3; ++i) {
-        d = std::min(d, length3(sub3(p, birds[i])) - kSceneBirdRadius);
+    d = std::min(d, sdfLhFacePl(pl, {-h, 0.0f, 0.0f}, {t, h, h}));
+    // Faces ±Z: finas em Z, altura/largura completas (antes estava (h,t,h) → só uma faixa em Y).
+    d = std::min(d, sdfLhFacePl(pl, {0.0f, 0.0f, h}, {h, h, t}));
+    d = std::min(d, sdfLhFacePl(pl, {0.0f, 0.0f, -h}, {h, h, t}));
+    d = std::min(d, sdfLhFacePl(pl, {0.0f, h, 0.0f}, {h, t, h}));
+    d = std::min(d, sdfLhFacePl(pl, {0.0f, -h, 0.0f}, {h, t, h}));
+    return d;
+}
+
+static float signedDistanceLighthouseTower(const Vec3& p) {
+    const Vec3 c = lighthouseTowerCenterWorld();
+    const Aabb bb = {c, {kLighthouseTowerHalfXZ, kLighthouseTowerHalfY, kLighthouseTowerHalfXZ}, {0.0f, 0.0f, 0.0f, 0.0f}};
+    return SignedDistanceAabb(p, bb);
+}
+
+static float signedDistanceLighthouse(const Vec3& p) {
+    const float yaw = lighthouseYawRad();
+    return std::min(signedDistanceLighthouseTower(p), signedDistanceLighthouseHead(p, yaw));
+}
+
+static float signedDistanceMovingSpheres(const Vec3& p) {
+    Vec3 s[3];
+    movingBezierSpheresCompute(s);
+    float d = 1e10f;
+    for (int i = 0; i < kMovingBezierSphereCount; ++i) {
+        d = std::min(d, length3(sub3(p, s[i])) - kMovingSphereRadius);
     }
     return d;
 }
-} // namespace
+
+static float signedDistanceMovingCars(const Vec3& p) {
+    Vec3 anchor[3];
+    movingCarsCompute(anchor);
+    float d = 1e10f;
+    for (int i = 0; i < kMovingCarCount; ++i) {
+        CarRigidState st;
+        carRigidState(i, anchor[i], st);
+        const Vec3 r = carRearBoxCenterWorld(st);
+        const Vec3 f = carFrontBoxCenterWorld(st);
+        const Aabb br = {r, {kCarRearHalfX, kCarRearHalfY, kCarRearHalfZ}, {0.0f, 0.0f, 0.0f, 0.0f}};
+        const Aabb bf = {f, {kCarFrontHalfX, kCarFrontHalfY, kCarFrontHalfZ}, {0.0f, 0.0f, 0.0f, 0.0f}};
+        d = std::min(d, SignedDistanceAabb(p, br));
+        d = std::min(d, SignedDistanceAabb(p, bf));
+    }
+    return d;
+}
 
 float SignedDistanceScene(const Vec3& p) {
     float d = SignedDistanceFloor(p);
-    d = std::min(d, signedDistanceBirds(p));
+    d = std::min(d, signedDistanceMovingSpheres(p));
+    d = std::min(d, signedDistanceMovingCars(p));
+    d = std::min(d, signedDistanceLighthouse(p));
     for (size_t i = 0; i < gSpheres.size(); ++i) {
         d = std::min(d, SignedDistanceSphere(p, gSpheres[i]));
     }
@@ -151,10 +247,30 @@ Vec3 sceneColorAt(const Vec3& p) {
     Vec3 color = {kSceneFloorMaterial.r, kSceneFloorMaterial.g, kSceneFloorMaterial.b};
 
     {
-        const float db = signedDistanceBirds(p);
-        if (db < bestD) {
-            bestD = db;
-            color = {kSceneBirdMaterial.r, kSceneBirdMaterial.g, kSceneBirdMaterial.b};
+        const float dm = signedDistanceMovingSpheres(p);
+        if (dm < bestD) {
+            bestD = dm;
+            color = {kMovingSphereMaterial.r, kMovingSphereMaterial.g, kMovingSphereMaterial.b};
+        }
+    }
+    {
+        const float dc = signedDistanceMovingCars(p);
+        if (dc < bestD) {
+            bestD = dc;
+            color = {kMovingCarMaterial.r, kMovingCarMaterial.g, kMovingCarMaterial.b};
+        }
+    }
+    {
+        const float yaw = lighthouseYawRad();
+        const float dLt = signedDistanceLighthouseTower(p);
+        if (dLt < bestD) {
+            bestD = dLt;
+            color = {0.9f, 0.89f, 0.86f};
+        }
+        const float dLh = signedDistanceLighthouseHead(p, yaw);
+        if (dLh < bestD) {
+            bestD = dLh;
+            color = {0.72f, 0.78f, 0.86f};
         }
     }
 
@@ -251,6 +367,40 @@ bool rayAabbHitSegment(const Vec3& o, const Vec3& d, const Vec3& c, const Vec3& 
     return true;
 }
 
+/** Raio em espaço local da cabeça: intersecção com as 5 placas (cubo oco; +X aberto). */
+static bool rayLighthouseHeadShellBlocks(
+    const Vec3& o,
+    const Vec3& Ld,
+    const float yaw,
+    const Vec3& hc,
+    const float tMinEps,
+    const float maxDist) {
+    const Vec3 q = sub3(o, hc);
+    const float c = std::cos(-yaw);
+    const float s = std::sin(-yaw);
+    const Vec3 pl_o = {c * q.x + s * q.z, q.y, -s * q.x + c * q.z};
+    const Vec3 pl_d = {c * Ld.x + s * Ld.z, Ld.y, -s * Ld.x + c * Ld.z};
+    const float h = kLighthouseHeadHalf;
+    const float t = kLighthouseFaceThickness;
+    const struct {
+        Vec3 c;
+        Vec3 halfSize;
+    } plates[] = {
+        {{-h, 0.0f, 0.0f}, {t, h, h}},
+        {{0.0f, 0.0f, h}, {h, h, t}},
+        {{0.0f, 0.0f, -h}, {h, h, t}},
+        {{0.0f, h, 0.0f}, {h, t, h}},
+        {{0.0f, -h, 0.0f}, {h, t, h}},
+    };
+    for (int i = 0; i < 5; ++i) {
+        float tHit = 0.0f;
+        if (rayAabbHitSegment(pl_o, pl_d, plates[i].c, plates[i].halfSize, tMinEps, maxDist, tHit)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 /** Raio reto em direção ao sol: bloqueio por chão (plano), esferas e AABBs (sem sphere tracing). */
 bool directionalShadowOccluded(const Vec3& p, const Vec3& n, const Vec3& sunDir) {
     const Vec3 o = add3(p, add3(scale3(n, kShadowBias), scale3(sunDir, kShadowBias * 0.5f)));
@@ -277,13 +427,62 @@ bool directionalShadowOccluded(const Vec3& p, const Vec3& n, const Vec3& sunDir)
         }
     }
     {
-        Vec3 birds[3];
-        birdComputePositions(birds);
-        for (int i = 0; i < 3; ++i) {
-            const float tHit = raySphereMinT(o, sunDir, birds[i], kSceneBirdRadius, kShadowTMinPrim);
+        Vec3 sph[3];
+        movingBezierSpheresCompute(sph);
+        for (int i = 0; i < kMovingBezierSphereCount; ++i) {
+            const float tHit = raySphereMinT(o, sunDir, sph[i], kMovingSphereRadius, kShadowTMinPrim);
             if (tHit > 0.0f && tHit < kShadowMaxDist) {
                 return true;
             }
+        }
+    }
+    {
+        Vec3 anchor[3];
+        movingCarsCompute(anchor);
+        for (int i = 0; i < kMovingCarCount; ++i) {
+            CarRigidState st;
+            carRigidState(i, anchor[i], st);
+            const Vec3 r = carRearBoxCenterWorld(st);
+            const Vec3 f = carFrontBoxCenterWorld(st);
+            float tBox = 0.0f;
+            if (rayAabbHitSegment(
+                    o,
+                    sunDir,
+                    r,
+                    {kCarRearHalfX, kCarRearHalfY, kCarRearHalfZ},
+                    kShadowTMinPrim,
+                    kShadowMaxDist,
+                    tBox)) {
+                return true;
+            }
+            if (rayAabbHitSegment(
+                    o,
+                    sunDir,
+                    f,
+                    {kCarFrontHalfX, kCarFrontHalfY, kCarFrontHalfZ},
+                    kShadowTMinPrim,
+                    kShadowMaxDist,
+                    tBox)) {
+                return true;
+            }
+        }
+    }
+    {
+        const Vec3 tc = lighthouseTowerCenterWorld();
+        float tBox = 0.0f;
+        if (rayAabbHitSegment(
+                o,
+                sunDir,
+                tc,
+                {kLighthouseTowerHalfXZ, kLighthouseTowerHalfY, kLighthouseTowerHalfXZ},
+                kShadowTMinPrim,
+                kShadowMaxDist,
+                tBox)) {
+            return true;
+        }
+        const Vec3 hc = lighthouseHeadCenterWorld();
+        if (rayLighthouseHeadShellBlocks(o, sunDir, lighthouseYawRad(), hc, kShadowTMinPrim, kShadowMaxDist)) {
+            return true;
         }
     }
     return false;
@@ -312,6 +511,10 @@ bool pointLightShadowOccluded(const Vec3& p, const Vec3& n, const Vec3& lightPos
 
     for (size_t i = 0; i < gSpheres.size(); ++i) {
         const Sphere& s = gSpheres[i];
+        // Esfera grande do terreno/ilha: raios longos até o farol atravessam-na em falso positivo.
+        if (s.radius >= 45.0f) {
+            continue;
+        }
         const float t = raySphereMinT(o, Ld, s.center, s.radius, kShadowTMinPrim);
         if (t > 0.0f && t < maxT) {
             return true;
@@ -325,13 +528,41 @@ bool pointLightShadowOccluded(const Vec3& p, const Vec3& n, const Vec3& lightPos
         }
     }
     {
-        Vec3 birds[3];
-        birdComputePositions(birds);
-        for (int i = 0; i < 3; ++i) {
-            const float tHit = raySphereMinT(o, Ld, birds[i], kSceneBirdRadius, kShadowTMinPrim);
+        Vec3 sph[3];
+        movingBezierSpheresCompute(sph);
+        for (int i = 0; i < kMovingBezierSphereCount; ++i) {
+            const float tHit = raySphereMinT(o, Ld, sph[i], kMovingSphereRadius, kShadowTMinPrim);
             if (tHit > 0.0f && tHit < maxT) {
                 return true;
             }
+        }
+    }
+    {
+        Vec3 anchor[3];
+        movingCarsCompute(anchor);
+        for (int i = 0; i < kMovingCarCount; ++i) {
+            CarRigidState st;
+            carRigidState(i, anchor[i], st);
+            const Vec3 r = carRearBoxCenterWorld(st);
+            const Vec3 f = carFrontBoxCenterWorld(st);
+            float tBox = 0.0f;
+            if (rayAabbHitSegment(o, Ld, r, {kCarRearHalfX, kCarRearHalfY, kCarRearHalfZ}, kShadowTMinPrim, maxT, tBox)) {
+                return true;
+            }
+            if (rayAabbHitSegment(o, Ld, f, {kCarFrontHalfX, kCarFrontHalfY, kCarFrontHalfZ}, kShadowTMinPrim, maxT, tBox)) {
+                return true;
+            }
+        }
+    }
+    {
+        const Vec3 tc = lighthouseTowerCenterWorld();
+        float tBox = 0.0f;
+        if (rayAabbHitSegment(o, Ld, tc, {kLighthouseTowerHalfXZ, kLighthouseTowerHalfY, kLighthouseTowerHalfXZ}, kShadowTMinPrim, maxT, tBox)) {
+            return true;
+        }
+        const Vec3 hc = lighthouseHeadCenterWorld();
+        if (rayLighthouseHeadShellBlocks(o, Ld, lighthouseYawRad(), hc, kShadowTMinPrim, maxT)) {
+            return true;
         }
     }
     return false;
@@ -350,6 +581,20 @@ Vec3 teleportToOppositeSide(
         normal = {1.0f, 0.0f, 0.0f};
     }
     return add3(destination.center, scale3(normal, -(destination.coreRadius + margin)));
+}
+
+void cameraApplyWormholeTeleportIfNeeded(const Vec3& positionBefore, Vec3& positionAfter) {
+    static constexpr float kExitMargin = 0.04f;
+    const float prevDistA = length3(sub3(positionBefore, gWormhole.holeA.center));
+    const float nextDistA = length3(sub3(positionAfter, gWormhole.holeA.center));
+    const float prevDistB = length3(sub3(positionBefore, gWormhole.holeB.center));
+    const float nextDistB = length3(sub3(positionAfter, gWormhole.holeB.center));
+
+    if (prevDistA >= gWormhole.holeA.coreRadius && nextDistA < gWormhole.holeA.coreRadius) {
+        positionAfter = teleportToOppositeSide(positionAfter, gWormhole.holeA, gWormhole.holeB, kExitMargin);
+    } else if (prevDistB >= gWormhole.holeB.coreRadius && nextDistB < gWormhole.holeB.coreRadius) {
+        positionAfter = teleportToOppositeSide(positionAfter, gWormhole.holeB, gWormhole.holeA, kExitMargin);
+    }
 }
 
 void computeDayNightLighting(DayNightLighting& out) {
@@ -416,7 +661,7 @@ Vec3 skyColor(const Vec3& dir) {
 static bool isInfiniteFloorAt(const Vec3& p) {
     const float df = SignedDistanceFloor(p);
     const float dScene = SignedDistanceScene(p);
-    return std::fabs(df - dScene) < 0.04f;
+    return std::fabs(df - dScene) < kOceanFloorMatchEps;
 }
 
 static Vec3 shadeSurfaceOpaque(const Vec3& p, const Vec3& n, const Vec3& base) {
@@ -443,7 +688,8 @@ static Vec3 shadeSurfaceOpaque(const Vec3& p, const Vec3& n, const Vec3& base) {
             plMul = 0.0f;
         }
         const float edge = 1.0f - clampf(d / (L.range * 2.0f), 0.0f, 1.0f);
-        const float atten = edge * edge / (1.0f + d * d * 0.032f);
+        const float dr = d / std::max(L.range, 1e-4f);
+        const float atten = edge * edge / (1.0f + dr * dr);
         const Vec3 tint = scale3(L.color, ndl * atten * 0.52f * dn.pointLightScale * plMul);
         acc = add3(acc, {base.x * tint.x, base.y * tint.y, base.z * tint.z});
     }
