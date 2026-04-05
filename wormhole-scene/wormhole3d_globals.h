@@ -33,9 +33,6 @@ extern bool gAnimatingCamera;
 extern float gCameraT;
 extern Vec3 P0, P1, P2, P3;
 
-extern GLuint myTexture;
-extern GLuint gTexSky;
-extern GLuint gTexReflect;
 extern float gSceneTimeSec;
 /** Tempo absoluto da app (ms), para ciclo dia/noite. */
 extern int gSceneTimeMs;

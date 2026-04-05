@@ -8,6 +8,19 @@
 // Nível do chão na SDF (SignedDistanceFloor).
 inline constexpr float kSceneGroundY = -1.15f;
 
+// Poste: esfera do lampião (SDF) e luz pontual — a luz fica acima do topo da esfera para não ficar dentro da malha.
+inline constexpr float kPostBulbRadius = 0.09f;
+inline constexpr float kPostBulbStemOffset = 0.07f;
+inline constexpr float kPostLightClearanceAboveBulb = 0.03f;
+
+inline float postBulbCenterY(float poleHalfHeight) {
+    return kSceneGroundY + poleHalfHeight * 2.0f + kPostBulbStemOffset - kPostBulbRadius;
+}
+
+inline float postPointLightY(float poleHalfHeight) {
+    return postBulbCenterY(poleHalfHeight) + kPostBulbRadius + kPostLightClearanceAboveBulb;
+}
+
 // Entidade abstrata: prefabs geram esferas e AABBs consumidos pelo raycast e raster.
 class SceneEntity {
 public:

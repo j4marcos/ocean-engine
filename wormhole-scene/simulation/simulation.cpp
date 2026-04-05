@@ -295,6 +295,54 @@ bool directionalShadowOccluded(const Vec3& p, const Vec3& n, const Vec3& sunDir)
     return false;
 }
 
+/** Raio de p em direção à luz pontual: bloqueio antes de alcançar a fonte (mesma geometria que o sol). */
+bool pointLightShadowOccluded(const Vec3& p, const Vec3& n, const Vec3& lightPos, float distToLight) {
+    if (distToLight < kShadowPlaneMinT) {
+        return false;
+    }
+    const Vec3 toL = sub3(lightPos, p);
+    const Vec3 Ld = normalize3(toL);
+    const Vec3 o = add3(p, add3(scale3(n, kShadowBias), scale3(Ld, kShadowBias * 0.5f)));
+    const float segLen = dot3(sub3(lightPos, o), Ld);
+    if (segLen <= kShadowTMinPrim) {
+        return false;
+    }
+    const float maxT = std::min(segLen - 1e-3f, kShadowMaxDist);
+
+    if (std::fabs(Ld.y) > 1e-6f) {
+        const float tPlane = (kFloorY - o.y) / Ld.y;
+        if (tPlane >= kShadowPlaneMinT && tPlane < maxT) {
+            return true;
+        }
+    }
+
+    for (size_t i = 0; i < gSpheres.size(); ++i) {
+        const Sphere& s = gSpheres[i];
+        const float t = raySphereMinT(o, Ld, s.center, s.radius, kShadowTMinPrim);
+        if (t > 0.0f && t < maxT) {
+            return true;
+        }
+    }
+    for (size_t i = 0; i < gBoxes.size(); ++i) {
+        const Aabb& b = gBoxes[i];
+        float tBox = 0.0f;
+        if (rayAabbHitSegment(o, Ld, b.center, b.halfSize, kShadowTMinPrim, maxT, tBox)) {
+            return true;
+        }
+    }
+    {
+        Vec3 birds[3];
+        birdComputePositions(birds);
+        for (int i = 0; i < 3; ++i) {
+            const float tHit = raySphereMinT(o, Ld, birds[i], kBirdRadius, kShadowTMinPrim);
+            if (tHit > 0.0f && tHit < maxT) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 } // namespace
 
 Vec3 teleportToOppositeSide(
@@ -390,9 +438,13 @@ static Vec3 shadeSurface(const Vec3& p, const Vec3& n, const Vec3& base) {
         }
         const Vec3 Ld = normalize3(toL);
         const float ndl = clampf(dot3(n, Ld), 0.0f, 1.0f);
+        float plMul = 1.0f;
+        if (ndl > 1e-6f && pointLightShadowOccluded(p, n, L.position, d)) {
+            plMul = 0.0f;
+        }
         const float edge = 1.0f - clampf(d / (L.range * 2.0f), 0.0f, 1.0f);
         const float atten = edge * edge / (1.0f + d * d * 0.032f);
-        const Vec3 tint = scale3(L.color, ndl * atten * 0.52f * dn.pointLightScale);
+        const Vec3 tint = scale3(L.color, ndl * atten * 0.52f * dn.pointLightScale * plMul);
         acc = add3(acc, {base.x * tint.x, base.y * tint.y, base.z * tint.z});
     }
     return {clampf(acc.x, 0.0f, 1.0f), clampf(acc.y, 0.0f, 1.0f), clampf(acc.z, 0.0f, 1.0f)};

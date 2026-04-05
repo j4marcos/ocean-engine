@@ -32,3 +32,12 @@ no meio dos predios o burado A -> a cidade vê o portal pra o espaço
 no ceu o buraco B -> o espaço vê o portal pra a cidade
 
 passaros voando no ceu em loop -> curvas de besier
+
+
+calculo de raycast: 
+
+no cpu:
+joga raio de luz ate intercectar algo, se interceptar objeto , calcula se o caminho ate um fonte de luz esta livre (oclusão)
+se o raio cair em um wormhole warp radios então o raio se conporta como um ray march. 
+
+no gpu:

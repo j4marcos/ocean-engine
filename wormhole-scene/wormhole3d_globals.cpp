@@ -47,9 +47,6 @@ Vec3 P1 = {-1.6f, 0.45f, -1.0f};
 Vec3 P2 = {-1.6f, 0.45f, -4.2f};
 Vec3 P3 = {2.0f, 11.0f, -7.5f};
 
-GLuint myTexture = 0;
-GLuint gTexSky = 0;
-GLuint gTexReflect = 0;
 float gSceneTimeSec = 0.0f;
 int gSceneTimeMs = 0;
 int gDayNightCycleMs = 120000;

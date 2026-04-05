@@ -188,7 +188,7 @@ int main(int argc, char** argv) {
     sceneBuildCrossingQuarter();
 
     glutInit(&argc, argv);
-    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH );
     glutInitContextVersion(2, 1);
     glutInitWindowSize(gWindowWidth, gWindowHeight);
     glutInitWindowPosition(100, 60);

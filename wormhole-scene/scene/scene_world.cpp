@@ -62,7 +62,7 @@ void sceneBuildCrossingQuarter() {
     gWormhole.holeA.center = {cx, 0.52f, cz};
     gWormhole.holeB.center = {2.2f, 11.0f, cz - 2.5f};
 
-    const float lightY = kSceneGroundY + ph * 2.0f + 0.07f;
+    const float lightY = postPointLightY(ph);
     const Vec3 lampRgb = {0.98f, 0.88f, 0.42f};
     const float lampRange = 9.0f;
     gPointLights.push_back({{cx - 2.4f, lightY, cz - 2.4f}, lampRgb, lampRange});

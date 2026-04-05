@@ -29,8 +29,8 @@ void PostPrefab::emit(std::vector<Sphere>& spheres, std::vector<Aabb>& boxes) co
     const Vec3 poleCenter = {baseXZ_.x, kSceneGroundY + poleHalfH_, baseXZ_.z};
     boxes.push_back({poleCenter, {thick_, poleHalfH_, thick_}, poleColor_});
 
-    const float lightY = kSceneGroundY + poleHalfH_ * 2.0f + 0.07f;
-    spheres.push_back({{baseXZ_.x, lightY, baseXZ_.z}, 0.09f, lightColor_});
+    const float bulbCy = postBulbCenterY(poleHalfH_);
+    spheres.push_back({{baseXZ_.x, bulbCy, baseXZ_.z}, kPostBulbRadius, lightColor_});
 }
 
 TreePrefab::TreePrefab(const Vec3 baseXZ, const RGBA& trunkColor, const RGBA& leafColor)

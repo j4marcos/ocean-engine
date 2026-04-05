@@ -20,21 +20,21 @@ void buildModeLabel(char* buf, const int cap) {
 
     if (!gUseRaycast) {
         if (p < end) {
-            *p++ = 'R';
+            *p++ = 'Raster';
         }
     } else {
         if (p < end) {
-            *p++ = 'T';
+            *p++ = 'Ray';
         }
         if (gRaycastGpuReady && gUseGpuRaycast && p < end) {
-            *p++ = ' ';
-            *p++ = 'G';
+            *p++ = 'Cpu';
+            *p++ = 'Gpu';
         }
     }
 
     if (gAnimatingCamera && p < end) {
-        *p++ = ' ';
-        *p++ = 'C';
+        *p++ = '-';
+        *p++ = 'Cam';
     }
 
     *p = '\0';

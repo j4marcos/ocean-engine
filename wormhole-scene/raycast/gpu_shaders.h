@@ -332,6 +332,66 @@ float sunShadowStraight(vec3 p, vec3 n, vec3 sunDir) {
     return 1.0;
 }
 
+float pointShadowStraight(vec3 p, vec3 n, vec3 lightPos) {
+    vec3 toL = lightPos - p;
+    float d = length3(toL);
+    if (d < 1e-5) {
+        return 1.0;
+    }
+    vec3 Ld = normalize3(toL);
+    float kBias = 0.06;
+    float kTMin = 0.04;
+    float kPlaneMin = 0.22;
+    float kMax = 400.0;
+    float kFloorY = -1.15;
+    vec3 o = p + n * kBias + Ld * (kBias * 0.5);
+    float segLen = dot(lightPos - o, Ld);
+    if (segLen <= kTMin) {
+        return 1.0;
+    }
+    float maxT = min(segLen - 0.001, kMax);
+
+    if (abs(Ld.y) > 1e-6) {
+        float tPlane = (kFloorY - o.y) / Ld.y;
+        if (tPlane >= kPlaneMin && tPlane < maxT) {
+            return 0.0;
+        }
+    }
+
+    for (int i = 0; i < 96; i++) {
+        if (i >= uObjectCount) {
+            break;
+        }
+        float u = (float(i) + 0.5) * uSceneInvW;
+        float v0 = (0.0 + 0.5) / 3.0;
+        float v1 = (1.0 + 0.5) / 3.0;
+        vec4 t0 = texture2D(uSceneData, vec2(u, v0));
+        vec4 t1 = texture2D(uSceneData, vec2(u, v1));
+        vec3 center = vec3(t0.g, t0.b, t0.a);
+        if (t0.r < 0.5) {
+            float rad = t1.r;
+            float tS = raySphereMinT(o, Ld, center, rad, kTMin);
+            if (tS > 0.0 && tS < maxT) {
+                return 0.0;
+            }
+        } else {
+            vec3 halfSize = vec3(t1.r, t1.g, t1.b);
+            float tB = rayAabbEnterT(o, Ld, center, halfSize, kTMin, maxT);
+            if (tB >= 0.0) {
+                return 0.0;
+            }
+        }
+    }
+    for (int bi = 0; bi < 3; bi++) {
+        vec3 bc = birdPos(bi);
+        float tSb = raySphereMinT(o, Ld, bc, 0.09, kTMin);
+        if (tSb > 0.0 && tSb < maxT) {
+            return 0.0;
+        }
+    }
+    return 1.0;
+}
+
 vec3 shadeSurface(vec3 p, vec3 n, vec3 base) {
     vec3 sunDir = normalize3(uSunDir);
     float sunMul = 1.0;
@@ -351,9 +411,13 @@ vec3 shadeSurface(vec3 p, vec3 n, vec3 base) {
         }
         vec3 Ld = normalize3(toL);
         float ndl = clampf(dot(n, Ld), 0.0, 1.0);
+        float plMul = 1.0;
+        if (ndl > 0.000001) {
+            plMul = pointShadowStraight(p, n, uPointPos[i]);
+        }
         float edge = 1.0 - clampf(d / (uPointRange[i] * 2.0), 0.0, 1.0);
         float atten = edge * edge / (1.0 + d * d * 0.032);
-        vec3 tint = uPointCol[i] * (ndl * atten * 0.52 * uPointLightScale);
+        vec3 tint = uPointCol[i] * (ndl * atten * 0.52 * uPointLightScale * plMul);
         acc += base * tint;
     }
     return clamp(acc, vec3(0.0), vec3(1.0));
