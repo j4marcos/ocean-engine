@@ -6,9 +6,16 @@ struct Vec3 {
     float z;
 };
 
+struct RGBA {
+    float r;
+    float g;
+    float b;
+    float a;
+};
+
 struct WarpHole3D {
     Vec3 center;
-    float radius;
+    float warpRadius;
     float coreRadius;
     float strength;
 };
@@ -21,13 +28,13 @@ struct Wormhole3D {
 struct Sphere {
     Vec3 center;
     float radius;
-    Vec3 color;
+    RGBA color;
 };
 
 struct Aabb {
     Vec3 center;
     Vec3 halfSize;
-    Vec3 color;
+    RGBA color;
 };
 
 struct Camera {
@@ -35,4 +42,11 @@ struct Camera {
     float yawHorizontalDegree;
     float pitchVerticalDegree;
     float fovViewDegree;
+};
+
+// Luz pontual para raycast (postes, etc.): cor linear e alcance de atenuação.
+struct PointLight {
+    Vec3 position;
+    Vec3 color;
+    float range;
 };

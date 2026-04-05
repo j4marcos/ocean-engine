@@ -62,6 +62,12 @@ void drawOverlay() {
     glColor3f(0.88f, 0.90f, 0.98f);
     drawText(18, hudY, modeBuf);
 
+    char solBuf[40];
+    std::snprintf(solBuf, sizeof(solBuf), "Sol: %s  [ / ]  T",
+        gDayNightAuto ? "auto" : "manual");
+    glColor3f(0.72f, 0.78f, 0.95f);
+    drawText(18, hudY - 16, solBuf);
+
     char fpsBuf[48];
     std::snprintf(fpsBuf, sizeof(fpsBuf), "FPS: %.1f", gFpsDisplay);
     glColor3f(0.55f, 0.95f, 0.55f);

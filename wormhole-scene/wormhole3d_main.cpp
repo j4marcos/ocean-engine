@@ -1,4 +1,5 @@
 #include "wormhole3d_globals.h"
+#include "scene_world.h"
 #include "wormhole3d_init.h"
 #include "wormhole3d_raster.h"
 #include "wormhole3d_raycast.h"
@@ -15,6 +16,11 @@
 
 static void display() {
     const int nowMs = glutGet(GLUT_ELAPSED_TIME);
+    gSceneTimeMs = nowMs;
+    gSceneTimeSec = static_cast<float>(nowMs) * 0.001f;
+    if (gDayNightAuto) {
+        gDayNightEffectiveMs = nowMs;
+    }
     if (gFpsLastMs == 0) {
         gFpsLastMs = nowMs;
     }
@@ -124,6 +130,29 @@ static void keyboard(const unsigned char key, const int x, const int y) {
             gWormhole.holeA.strength = clampf(gWormhole.holeA.strength - 0.02f, 0.02f, 1.2f);
             gWormhole.holeB.strength = gWormhole.holeA.strength;
             break;
+        case '[':
+            if (gDayNightAuto) {
+                gDayNightEffectiveMs = gSceneTimeMs;
+                gDayNightAuto = false;
+            }
+            gDayNightEffectiveMs -= gDayNightStepMs;
+            break;
+        case ']':
+            if (gDayNightAuto) {
+                gDayNightEffectiveMs = gSceneTimeMs;
+                gDayNightAuto = false;
+            }
+            gDayNightEffectiveMs += gDayNightStepMs;
+            break;
+        case 't':
+        case 'T':
+            if (gDayNightAuto) {
+                gDayNightAuto = false;
+                gDayNightEffectiveMs = gSceneTimeMs;
+            } else {
+                gDayNightAuto = true;
+            }
+            break;
     }
 
     glutPostRedisplay();
@@ -156,6 +185,8 @@ static void idle() {
 }
 
 int main(int argc, char** argv) {
+    sceneBuildCrossingQuarter();
+
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
     glutInitContextVersion(2, 1);

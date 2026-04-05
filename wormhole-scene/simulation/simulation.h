@@ -34,5 +34,17 @@ Vec3 teleportToOppositeSide(
     const WarpHole3D& destination,
     float margin);
 
+struct DayNightLighting {
+    Vec3 sunDir{};
+    float sunDiffuse = 0.1f;
+    float ambient = 0.055f;
+    float pointLightScale = 1.0f;
+    /** 0 = noite, 1 = dia (céu e clear). */
+    float skyDayFactor = 0.0f;
+};
+
+/** Parâmetros coerentes com `gSceneTimeMs` e `gDayNightCycleMs`. */
+void computeDayNightLighting(DayNightLighting& out);
+
 Vec3 skyColor(const Vec3& dir);
 Vec3 traceRay(const Vec3& origin, Vec3 dir);

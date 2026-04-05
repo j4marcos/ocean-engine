@@ -16,3 +16,19 @@ run:
 ./wormhole3d_demo
 
 Ray marching é uma técnica de renderização 3D baseada em Signed Distance Functions (SDFs), onde raios são disparados da câmera e progridem iterativamente em passos, calculando a menor distância até um objeto para avançar com segurança, evitando intersecções geométricas diretas
+
+
+metas pra finalização:
+
+ilha com montanhas criadas com textura de height-bump -> criar relevo sem precisar modelar -> textura de grama
+mar e aguã com propriedade reflexiva -> raios so refletem dando uma tonalidade azul
+arvores low poly -> opcional pra dar um verde
+predios com luzes -> pra chamar atenção do raytracing -> e predios tem textura de fachadas 
+ruas -> com textura de dua
+postes com luzes -> pra chamar atenção do raytracing
+
+no meio dos predios o burado A -> a cidade vê o portal pra o espaço 
+
+no ceu o buraco B -> o espaço vê o portal pra a cidade
+
+passaros voando no ceu em loop -> curvas de besier
