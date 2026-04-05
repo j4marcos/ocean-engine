@@ -64,6 +64,38 @@ uniform float uSunDiffuse;
 uniform float uAmbient;
 uniform float uPointLightScale;
 uniform float uSkyDayFactor;
+uniform float uSceneTimeSec;
+
+vec3 cubicBezier(float t, vec3 p0, vec3 p1, vec3 p2, vec3 p3) {
+    float u = 1.0 - t;
+    float uu = u * u;
+    float tt = t * t;
+    return p0 * (u * uu) + p1 * (3.0 * uu * t) + p2 * (3.0 * u * tt) + p3 * (tt * t);
+}
+
+vec3 birdPos(int bi) {
+    float tAnim = mod(uSceneTimeSec * 0.12, 1.0);
+    float tb = mod(tAnim + float(bi) * 0.31, 1.0);
+    if (bi == 0) {
+        return cubicBezier(tb,
+            vec3(-6.0, 5.0, -4.0), vec3(-2.0, 7.0, -5.0), vec3(3.0, 6.0, -7.0), vec3(8.0, 4.5, -9.0));
+    }
+    if (bi == 1) {
+        return cubicBezier(tb,
+            vec3(5.0, 6.0, -6.0), vec3(1.0, 8.0, -7.0), vec3(-4.0, 7.0, -8.0), vec3(-9.0, 5.0, -10.0));
+    }
+    return cubicBezier(tb,
+        vec3(0.0, 4.0, -3.0), vec3(4.0, 9.0, -6.0), vec3(-3.0, 8.0, -9.0), vec3(6.0, 5.0, -11.0));
+}
+
+float sdfBirds(vec3 p) {
+    const float br = 0.09;
+    float d = 1e10;
+    for (int bi = 0; bi < 3; bi++) {
+        d = min(d, sdfSphere(p, birdPos(bi), br));
+    }
+    return d;
+}
 
 vec3 warpFieldFromHole(vec3 p, vec3 center, float radius, float strength) {
     vec3 toCenter = center - p;
@@ -81,6 +113,7 @@ vec3 warpField(vec3 p) {
 
 float sdfScene(vec3 p) {
     float d = sdfFloor(p);
+    d = min(d, sdfBirds(p));
     for (int i = 0; i < 96; i++) {
         if (i >= uObjectCount) {
             break;
@@ -107,6 +140,13 @@ float sdfScene(vec3 p) {
 vec3 sceneColorAt(vec3 p) {
     float bestD = sdfFloor(p);
     vec3 color = vec3(0.35, 0.37, 0.41);
+    {
+        float db = sdfBirds(p);
+        if (db < bestD) {
+            bestD = db;
+            color = vec3(0.18, 0.16, 0.14);
+        }
+    }
     for (int i = 0; i < 96; i++) {
         if (i >= uObjectCount) {
             break;
@@ -280,6 +320,13 @@ float sunShadowStraight(vec3 p, vec3 n, vec3 sunDir) {
             if (tB >= 0.0) {
                 return 0.0;
             }
+        }
+    }
+    for (int bi = 0; bi < 3; bi++) {
+        vec3 bc = birdPos(bi);
+        float tSb = raySphereMinT(o, sunDir, bc, 0.09, kTMin);
+        if (tSb > 0.0 && tSb < kMax) {
+            return 0.0;
         }
     }
     return 1.0;

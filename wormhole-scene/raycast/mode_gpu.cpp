@@ -94,6 +94,7 @@ GLint gLoc_uSunDiffuse = -1;
 GLint gLoc_uAmbient = -1;
 GLint gLoc_uPointLightScale = -1;
 GLint gLoc_uSkyDayFactor = -1;
+GLint gLoc_uSceneTimeSec = -1;
 
 void* glResolve(const char* name) {
     void* p = reinterpret_cast<void*>(glXGetProcAddress(reinterpret_cast<const GLubyte*>(name)));
@@ -262,6 +263,7 @@ bool initGpuRaycast() {
     gLoc_uAmbient = gGl.GetUniformLocation(gRayProgram, "uAmbient");
     gLoc_uPointLightScale = gGl.GetUniformLocation(gRayProgram, "uPointLightScale");
     gLoc_uSkyDayFactor = gGl.GetUniformLocation(gRayProgram, "uSkyDayFactor");
+    gLoc_uSceneTimeSec = gGl.GetUniformLocation(gRayProgram, "uSceneTimeSec");
 
     if (gLoc_aPos < 0 || gLoc_uCamPos < 0 || gLoc_uRayForward < 0 || gLoc_uRayRight < 0 || gLoc_uRayUp < 0 ||
         gLoc_uResolution < 0 || gLoc_uAspect < 0 || gLoc_uTanHalfFov < 0 ||
@@ -269,7 +271,8 @@ bool initGpuRaycast() {
         gLoc_uHoleB_center < 0 || gLoc_uHoleB_radius < 0 || gLoc_uHoleB_coreRadius < 0 || gLoc_uHoleB_strength < 0 ||
         gLoc_uSceneData < 0 || gLoc_uSceneInvW < 0 || gLoc_uObjectCount < 0 || gLoc_uPointCount < 0 ||
         gLoc_uPointRange0 < 0 || gLoc_uPointPos0 < 0 || gLoc_uPointCol0 < 0 || gLoc_uSunDir < 0 ||
-        gLoc_uSunDiffuse < 0 || gLoc_uAmbient < 0 || gLoc_uPointLightScale < 0 || gLoc_uSkyDayFactor < 0) {
+        gLoc_uSunDiffuse < 0 || gLoc_uAmbient < 0 || gLoc_uPointLightScale < 0 || gLoc_uSkyDayFactor < 0 ||
+        gLoc_uSceneTimeSec < 0) {
         std::cerr << "initGpuRaycast: missing attrib or uniform location\n";
         gGl.DeleteProgram(gRayProgram);
         gRayProgram = 0;
@@ -333,6 +336,7 @@ void raycastSceneGpu() {
     gGl.Uniform2f(gLoc_uResolution, static_cast<float>(kRaycastWidth), static_cast<float>(kRaycastHeight));
     gGl.Uniform1f(gLoc_uAspect, aspect);
     gGl.Uniform1f(gLoc_uTanHalfFov, tanHalfFov);
+    gGl.Uniform1f(gLoc_uSceneTimeSec, gSceneTimeSec);
 
     gGl.Uniform3f(gLoc_uHoleA_center, gWormhole.holeA.center.x, gWormhole.holeA.center.y, gWormhole.holeA.center.z);
     gGl.Uniform1f(gLoc_uHoleA_radius, gWormhole.holeA.warpRadius);

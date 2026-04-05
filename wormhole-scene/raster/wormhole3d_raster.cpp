@@ -164,18 +164,10 @@ void drawWaterReflective() {
 void drawBirdsBezier() {
     glDisable(GL_LIGHTING);
     glDisable(GL_TEXTURE_2D);
-    const float t = std::fmod(gSceneTimeSec * 0.12f, 1.0f);
-    struct BirdPath {
-        Vec3 p0, p1, p2, p3;
-    };
-    const BirdPath paths[3] = {
-        {{-6.0f, 5.0f, -4.0f}, {-2.0f, 7.0f, -5.0f}, {3.0f, 6.0f, -7.0f}, {8.0f, 4.5f, -9.0f}},
-        {{5.0f, 6.0f, -6.0f}, {1.0f, 8.0f, -7.0f}, {-4.0f, 7.0f, -8.0f}, {-9.0f, 5.0f, -10.0f}},
-        {{0.0f, 4.0f, -3.0f}, {4.0f, 9.0f, -6.0f}, {-3.0f, 8.0f, -9.0f}, {6.0f, 5.0f, -11.0f}},
-    };
+    Vec3 birds[3];
+    birdComputePositions(birds);
     for (int b = 0; b < 3; ++b) {
-        const float tb = std::fmod(t + static_cast<float>(b) * 0.31f, 1.0f);
-        const Vec3 p = calculateBezierPoint(tb, paths[b].p0, paths[b].p1, paths[b].p2, paths[b].p3);
+        const Vec3& p = birds[b];
         glColor3f(0.18f, 0.16f, 0.14f);
         glPushMatrix();
         glTranslatef(p.x, p.y, p.z);

@@ -14,6 +14,9 @@ Vec3 max3(const Vec3& v, float m);
 
 Vec3 calculateBezierPoint(float t, const Vec3& p0, const Vec3& p1, const Vec3& p2, const Vec3& p3);
 
+/** Três pássaros em curvas de Bézier (alinhado ao raster `drawBirdsBezier`). */
+void birdComputePositions(Vec3 birds[3]);
+
 Vec3 rayForward();
 Vec3 rayRight();
 Vec3 rayUp();
