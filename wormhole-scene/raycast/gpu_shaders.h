@@ -73,6 +73,7 @@ vec3 cubicBezier(float t, vec3 p0, vec3 p1, vec3 p2, vec3 p3) {
     return p0 * (u * uu) + p1 * (3.0 * uu * t) + p2 * (3.0 * u * tt) + p3 * (tt * t);
 }
 
+// Curvas iguais a `sceneRegisterBirdPaths()` em scene_world.cpp (GLSL 1.20 não lê gBirdBezier).
 vec3 birdPos(int bi) {
     float tAnim = mod(uSceneTimeSec * 0.12, 1.0);
     float tb = mod(tAnim + float(bi) * 0.31, 1.0);
@@ -139,7 +140,7 @@ float sdfScene(vec3 p) {
 
 vec3 sceneColorAt(vec3 p) {
     float bestD = sdfFloor(p);
-    vec3 color = vec3(0.35, 0.37, 0.41);
+    vec3 color = vec3(0.35, 0.37, 0.61);
     {
         float db = sdfBirds(p);
         if (db < bestD) {
@@ -218,6 +219,12 @@ vec3 skyColor(vec3 dir) {
     vec3 portalTint = vec3(0.08, 0.1, 0.22);
     float blend = pow(da, 12.0) * 0.35 + pow(db, 12.0) * 0.35;
     return mix(base, portalTint + base * 0.2, blend);
+}
+
+bool isInfiniteFloorAt(vec3 p) {
+    float df = sdfFloor(p);
+    float dScene = sdfScene(p);
+    return abs(df - dScene) < 0.04;
 }
 
 // |o + t*d - c|^2 = r^2 com d não necessariamente unitário (drivers antigos / precisão).
@@ -392,7 +399,7 @@ float pointShadowStraight(vec3 p, vec3 n, vec3 lightPos) {
     return 1.0;
 }
 
-vec3 shadeSurface(vec3 p, vec3 n, vec3 base) {
+vec3 shadeSurfaceOpaque(vec3 p, vec3 n, vec3 base) {
     vec3 sunDir = normalize3(uSunDir);
     float sunMul = 1.0;
     if (uSunDiffuse > 0.000001 && dot(n, sunDir) > 0.0) {
@@ -423,7 +430,13 @@ vec3 shadeSurface(vec3 p, vec3 n, vec3 base) {
     return clamp(acc, vec3(0.0), vec3(1.0));
 }
 
-vec3 traceRay(vec3 origin, vec3 dirIn) {
+vec3 applyOceanTint(vec3 c) {
+    vec3 t = vec3(0.78, 0.92, 1.05);
+    return min(c * t, vec3(1.0));
+}
+
+// 2.º segmento: raio vindo do plano infinito — iluminação completa, sem nova reflexão no chão.
+vec3 traceRayOpaqueSegment(vec3 origin, vec3 dirIn) {
     vec3 position = origin;
     vec3 dir = dirIn;
     float stepLength = 0.15;
@@ -448,7 +461,90 @@ vec3 traceRay(vec3 origin, vec3 dirIn) {
                 }
             }
             vec3 base = sceneColorAt(position);
-            return shadeSurface(position, n, base);
+            return shadeSurfaceOpaque(position, n, base);
+        }
+
+        float distA = length3(position - uHoleA_center);
+        float distB = length3(position - uHoleB_center);
+        bool insideWarp = (distA < uHoleA_radius) || (distB < uHoleB_radius);
+
+        vec3 nextPos;
+        if (!insideWarp) {
+            float travel = min(dScene, maxSphereStep);
+            if (travel < 1e-5) {
+                travel = 1e-5;
+            }
+            nextPos = position + dir * travel;
+        } else {
+            vec3 accel = warpField(position);
+            dir = normalize3(dir + accel * (stepLength * 0.85));
+            nextPos = position + dir * stepLength;
+        }
+
+        float prevDistA = distA;
+        float nextDistA = length3(nextPos - uHoleA_center);
+        float prevDistB = distB;
+        float nextDistB = length3(nextPos - uHoleB_center);
+
+        if (prevDistA >= uHoleA_coreRadius && nextDistA < uHoleA_coreRadius) {
+            nextPos = teleportToOppositeSide(nextPos,
+                uHoleA_center, uHoleA_coreRadius,
+                uHoleB_center, uHoleB_coreRadius, exitMargin);
+        } else if (prevDistB >= uHoleB_coreRadius && nextDistB < uHoleB_coreRadius) {
+            nextPos = teleportToOppositeSide(nextPos,
+                uHoleB_center, uHoleB_coreRadius,
+                uHoleA_center, uHoleA_coreRadius, exitMargin);
+        }
+
+        position = nextPos;
+
+        if (length3(position - origin) > maxDist) {
+            break;
+        }
+    }
+
+    return skyColor(dir);
+}
+
+vec3 traceRay(vec3 origin, vec3 dirIn) {
+    vec3 position = origin;
+    vec3 dir = dirIn;
+    float stepLength = 0.15;
+    float maxSphereStep = 0.25;
+    float maxDist = 75.0;
+    float hitEps = 0.08;
+    float warpHitDirEps = 0.02;
+    float exitMargin = 0.04;
+    float kOceanBias = 0.14;
+
+    for (int i = 0; i < 420; i++) {
+        float dScene = sdfScene(position);
+        if (dScene < hitEps) {
+            vec3 n = estimateNormal(position);
+            float wDistA = length3(position - uHoleA_center);
+            float wDistB = length3(position - uHoleB_center);
+            bool insideWarp = (wDistA < uHoleA_radius) || (wDistB < uHoleB_radius);
+            if (insideWarp) {
+                float dn = dot(dir, n);
+                if (dn >= -warpHitDirEps) {
+                    position = position + dir * (stepLength * 0.35);
+                    continue;
+                }
+            }
+            vec3 base = sceneColorAt(position);
+            if (isInfiniteFloorAt(position)) {
+                vec3 d = normalize3(dir);
+                vec3 refl = d - 2.0 * dot(d, n) * n;
+                vec3 p2 = position + n * kOceanBias;
+                vec3 reflected = traceRayOpaqueSegment(p2, refl);
+                reflected = applyOceanTint(reflected);
+                float NdotV = clampf(dot(n, -d), 0.0, 1.0);
+                float F = 0.02 + 0.98 * pow(1.0 - NdotV, 4.0);
+                float w = F * 0.68;
+                vec3 baseLit = shadeSurfaceOpaque(position, n, base);
+                return baseLit * (1.0 - w) + reflected * w;
+            }
+            return shadeSurfaceOpaque(position, n, base);
         }
 
         float distA = length3(position - uHoleA_center);

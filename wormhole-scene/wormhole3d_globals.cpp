@@ -18,6 +18,8 @@ std::vector<Sphere> gSpheres;
 std::vector<Aabb> gBoxes;
 std::vector<PointLight> gPointLights;
 
+std::array<BirdBezierPath, 3> gBirdBezier = {};
+
 // ilha (superfície 3d com heightmap usando real-bumpmap)
 
 // predios (array de objetos predio) (bloco 3d com textura de paredes)

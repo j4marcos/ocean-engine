@@ -5,8 +5,20 @@
 #include <memory>
 #include <vector>
 
-// Nível do chão na SDF (SignedDistanceFloor).
+// Nível do chão na SDF (SignedDistanceFloor) e no raster (plano).
 inline constexpr float kSceneGroundY = -1.15f;
+
+inline constexpr RGBA kSceneFloorMaterial = {0.35f, 0.37f, 0.61f, 1.0f};
+
+/** Plano infinito (oceano): raio reflete e a cor do 2.º hit é tingida de azul — só no raycast (CPU/GPU). */
+inline constexpr Vec3 kOceanReflectionTint = {0.78f, 0.92f, 1.05f};
+inline constexpr float kOceanFresnelBase = 0.02f;
+inline constexpr float kOceanFresnelMix = 0.68f;
+inline constexpr float kOceanFresnelPower = 4.0f;
+/** Offset ao longo da normal para o raio refletido não re-acertar o plano. */
+inline constexpr float kOceanReflectBias = 0.14f;
+inline constexpr float kSceneBirdRadius = 0.09f;
+inline constexpr RGBA kSceneBirdMaterial = {0.18f, 0.16f, 0.14f, 1.0f};
 
 // Poste: esfera do lampião (SDF) e luz pontual — a luz fica acima do topo da esfera para não ficar dentro da malha.
 inline constexpr float kPostBulbRadius = 0.09f;

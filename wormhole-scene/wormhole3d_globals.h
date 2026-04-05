@@ -3,6 +3,7 @@
 #include <GL/gl.h>
 #include <GL/glu.h>
 #include "wormhole3d_types.h"
+#include <array>
 #include <vector>
 
 // Dimensão interna do buffer de raycast (CPU e FBO GPU)
@@ -22,6 +23,9 @@ extern std::vector<Aabb> gBoxes;
 
 inline constexpr int kMaxPointLights = 8;
 extern std::vector<PointLight> gPointLights;
+
+/** Preenchido em `sceneBuildCrossingQuarter()` — usado em simulação (pássaros) e deve coincidir com `birdPos` no GPU shader. */
+extern std::array<BirdBezierPath, 3> gBirdBezier;
 
 extern std::vector<unsigned char> gRaycastPixels;
 

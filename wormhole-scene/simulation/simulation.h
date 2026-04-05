@@ -14,7 +14,7 @@ Vec3 max3(const Vec3& v, float m);
 
 Vec3 calculateBezierPoint(float t, const Vec3& p0, const Vec3& p1, const Vec3& p2, const Vec3& p3);
 
-/** Três pássaros em curvas de Bézier (alinhado ao raster `drawBirdsBezier`). */
+/** Três pássaros em curvas de Bézier (`gBirdBezier` preenchido em `sceneBuildCrossingQuarter`). */
 void birdComputePositions(Vec3 birds[3]);
 
 Vec3 rayForward();
@@ -50,4 +50,5 @@ struct DayNightLighting {
 void computeDayNightLighting(DayNightLighting& out);
 
 Vec3 skyColor(const Vec3& dir);
-Vec3 traceRay(const Vec3& origin, Vec3 dir);
+/** bounce: 0 = câmera; 1 = raio refletido no oceano (só iluminação direta, sem 2.ª reflexão no plano). */
+Vec3 traceRay(const Vec3& origin, Vec3 dir, int bounce = 0);

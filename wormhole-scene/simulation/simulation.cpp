@@ -1,5 +1,7 @@
 #include "wormhole3d_simulation.h"
 #include "wormhole3d_globals.h"
+#include "scene_entities.h"
+
 #include <algorithm>
 #include <cmath>
 
@@ -111,30 +113,22 @@ float SignedDistanceFloor(const Vec3& p) {
 }
 
 void birdComputePositions(Vec3 birds[3]) {
-    static const struct {
-        Vec3 p0, p1, p2, p3;
-    } kPaths[3] = {
-        {{-6.0f, 5.0f, -4.0f}, {-2.0f, 7.0f, -5.0f}, {3.0f, 6.0f, -7.0f}, {8.0f, 4.5f, -9.0f}},
-        {{5.0f, 6.0f, -6.0f}, {1.0f, 8.0f, -7.0f}, {-4.0f, 7.0f, -8.0f}, {-9.0f, 5.0f, -10.0f}},
-        {{0.0f, 4.0f, -3.0f}, {4.0f, 9.0f, -6.0f}, {-3.0f, 8.0f, -9.0f}, {6.0f, 5.0f, -11.0f}},
-    };
     const float t = std::fmod(gSceneTimeSec * 0.12f, 1.0f);
     for (int b = 0; b < 3; ++b) {
         const float tb = std::fmod(t + static_cast<float>(b) * 0.31f, 1.0f);
-        birds[b] = calculateBezierPoint(tb, kPaths[b].p0, kPaths[b].p1, kPaths[b].p2, kPaths[b].p3);
+        const BirdBezierPath& path = gBirdBezier[static_cast<size_t>(b)];
+        birds[b] = calculateBezierPoint(tb, path.p0, path.p1, path.p2, path.p3);
     }
 }
 
 namespace {
-constexpr float kBirdRadius = 0.09f;
-const Vec3 kBirdRgb = {0.18f, 0.16f, 0.14f};
 
 float signedDistanceBirds(const Vec3& p) {
     Vec3 birds[3];
     birdComputePositions(birds);
     float d = 1e10f;
     for (int i = 0; i < 3; ++i) {
-        d = std::min(d, length3(sub3(p, birds[i])) - kBirdRadius);
+        d = std::min(d, length3(sub3(p, birds[i])) - kSceneBirdRadius);
     }
     return d;
 }
@@ -154,13 +148,13 @@ float SignedDistanceScene(const Vec3& p) {
 
 Vec3 sceneColorAt(const Vec3& p) {
     float bestD = SignedDistanceFloor(p);
-    Vec3 color = {0.35f, 0.37f, 0.41f};
+    Vec3 color = {kSceneFloorMaterial.r, kSceneFloorMaterial.g, kSceneFloorMaterial.b};
 
     {
         const float db = signedDistanceBirds(p);
         if (db < bestD) {
             bestD = db;
-            color = kBirdRgb;
+            color = {kSceneBirdMaterial.r, kSceneBirdMaterial.g, kSceneBirdMaterial.b};
         }
     }
 
@@ -286,7 +280,7 @@ bool directionalShadowOccluded(const Vec3& p, const Vec3& n, const Vec3& sunDir)
         Vec3 birds[3];
         birdComputePositions(birds);
         for (int i = 0; i < 3; ++i) {
-            const float tHit = raySphereMinT(o, sunDir, birds[i], kBirdRadius, kShadowTMinPrim);
+            const float tHit = raySphereMinT(o, sunDir, birds[i], kSceneBirdRadius, kShadowTMinPrim);
             if (tHit > 0.0f && tHit < kShadowMaxDist) {
                 return true;
             }
@@ -334,7 +328,7 @@ bool pointLightShadowOccluded(const Vec3& p, const Vec3& n, const Vec3& lightPos
         Vec3 birds[3];
         birdComputePositions(birds);
         for (int i = 0; i < 3; ++i) {
-            const float tHit = raySphereMinT(o, Ld, birds[i], kBirdRadius, kShadowTMinPrim);
+            const float tHit = raySphereMinT(o, Ld, birds[i], kSceneBirdRadius, kShadowTMinPrim);
             if (tHit > 0.0f && tHit < maxT) {
                 return true;
             }
@@ -419,7 +413,13 @@ Vec3 skyColor(const Vec3& dir) {
     };
 }
 
-static Vec3 shadeSurface(const Vec3& p, const Vec3& n, const Vec3& base) {
+static bool isInfiniteFloorAt(const Vec3& p) {
+    const float df = SignedDistanceFloor(p);
+    const float dScene = SignedDistanceScene(p);
+    return std::fabs(df - dScene) < 0.04f;
+}
+
+static Vec3 shadeSurfaceOpaque(const Vec3& p, const Vec3& n, const Vec3& base) {
     DayNightLighting dn;
     computeDayNightLighting(dn);
     float sunMul = 1.0f;
@@ -447,10 +447,19 @@ static Vec3 shadeSurface(const Vec3& p, const Vec3& n, const Vec3& base) {
         const Vec3 tint = scale3(L.color, ndl * atten * 0.52f * dn.pointLightScale * plMul);
         acc = add3(acc, {base.x * tint.x, base.y * tint.y, base.z * tint.z});
     }
+
     return {clampf(acc.x, 0.0f, 1.0f), clampf(acc.y, 0.0f, 1.0f), clampf(acc.z, 0.0f, 1.0f)};
 }
 
-Vec3 traceRay(const Vec3& origin, Vec3 dir) {
+static Vec3 applyOceanTint(const Vec3& c) {
+    return {
+        clampf(c.x * kOceanReflectionTint.x, 0.0f, 1.0f),
+        clampf(c.y * kOceanReflectionTint.y, 0.0f, 1.0f),
+        clampf(c.z * kOceanReflectionTint.z, 0.0f, 1.0f)
+    };
+}
+
+Vec3 traceRay(const Vec3& origin, Vec3 dir, const int bounce) {
     Vec3 position = origin;
     const float stepLength = 0.15f;
     const float maxSphereStep = 0.25f;
@@ -476,7 +485,24 @@ Vec3 traceRay(const Vec3& origin, Vec3 dir) {
                 }
             }
             const Vec3 base = sceneColorAt(position);
-            return shadeSurface(position, n, base);
+            if (bounce == 0 && isInfiniteFloorAt(position)) {
+                const Vec3 d = normalize3(dir);
+                const Vec3 refl = sub3(d, scale3(n, 2.0f * dot3(d, n)));
+                const Vec3 p2 = add3(position, scale3(n, kOceanReflectBias));
+                Vec3 reflected = traceRay(p2, refl, 1);
+                reflected = applyOceanTint(reflected);
+                const float NdotV = clampf(dot3(n, scale3(d, -1.0f)), 0.0f, 1.0f);
+                const float F =
+                    kOceanFresnelBase + (1.0f - kOceanFresnelBase) * std::pow(1.0f - NdotV, kOceanFresnelPower);
+                const float w = F * kOceanFresnelMix;
+                const Vec3 baseLit = shadeSurfaceOpaque(position, n, base);
+                return {
+                    clampf(baseLit.x * (1.0f - w) + reflected.x * w, 0.0f, 1.0f),
+                    clampf(baseLit.y * (1.0f - w) + reflected.y * w, 0.0f, 1.0f),
+                    clampf(baseLit.z * (1.0f - w) + reflected.z * w, 0.0f, 1.0f)
+                };
+            }
+            return shadeSurfaceOpaque(position, n, base);
         }
 
         const float distA = length3(sub3(position, gWormhole.holeA.center));
@@ -515,5 +541,8 @@ Vec3 traceRay(const Vec3& origin, Vec3 dir) {
         }
     }
 
+    if (bounce > 0) {
+        return applyOceanTint(skyColor(dir));
+    }
     return skyColor(dir);
 }

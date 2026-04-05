@@ -6,10 +6,37 @@
 
 #include <memory>
 
+namespace {
+
+void sceneRegisterBirdPaths() {
+    gBirdBezier[0] = {
+        {-6.0f, 5.0f, -4.0f},
+        {-2.0f, 7.0f, -5.0f},
+        {3.0f, 6.0f, -7.0f},
+        {8.0f, 4.5f, -9.0f},
+    };
+    gBirdBezier[1] = {
+        {5.0f, 6.0f, -6.0f},
+        {1.0f, 8.0f, -7.0f},
+        {-4.0f, 7.0f, -8.0f},
+        {-9.0f, 5.0f, -10.0f},
+    };
+    gBirdBezier[2] = {
+        {0.0f, 4.0f, -3.0f},
+        {4.0f, 9.0f, -6.0f},
+        {-3.0f, 8.0f, -9.0f},
+        {6.0f, 5.0f, -11.0f},
+    };
+}
+
+} // namespace
+
 void sceneBuildCrossingQuarter() {
     gSpheres.clear();
     gBoxes.clear();
     gPointLights.clear();
+
+    sceneRegisterBirdPaths();
 
     std::vector<std::unique_ptr<SceneEntity>> entities;
 
@@ -51,9 +78,9 @@ void sceneBuildCrossingQuarter() {
     entities.push_back(std::make_unique<PostPrefab>(Vec3{cx - 2.4f, 0.0f, cz + 2.4f}, ph, pt, poleCol, lampCol));
     entities.push_back(std::make_unique<PostPrefab>(Vec3{cx + 2.4f, 0.0f, cz + 2.4f}, ph, pt, poleCol, lampCol));
 
-    // Esferas decorativas (opcional, cores distintas).
-    gSpheres.push_back({{-2.8f, -0.1f, cz - 4.5f}, 0.55f, {0.85f, 0.4f, 0.2f, 1.0f}});
-    gSpheres.push_back({{2.5f, -0.15f, cz - 3.8f}, 0.45f, {0.25f, 0.72f, 0.92f, 1.0f}});
+    // // Esferas decorativas (opcional, cores distintas).
+    // gSpheres.push_back({{-2.8f, -0.1f, cz - 4.5f}, 0.55f, {0.85f, 0.4f, 0.2f, 1.0f}});
+    // gSpheres.push_back({{2.5f, -0.15f, cz - 3.8f}, 0.45f, {0.25f, 0.72f, 0.92f, 1.0f}});
 
     for (const auto& e : entities) {
         e->emit(gSpheres, gBoxes);

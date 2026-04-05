@@ -50,3 +50,11 @@ struct PointLight {
     Vec3 color;
     float range;
 };
+
+/** Curva de Bézier cúbica (pássaros): controlos declarados em `scene_world.cpp`. */
+struct BirdBezierPath {
+    Vec3 p0;
+    Vec3 p1;
+    Vec3 p2;
+    Vec3 p3;
+};
