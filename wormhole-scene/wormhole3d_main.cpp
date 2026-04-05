@@ -183,6 +183,10 @@ static void keyboard(const unsigned char key, const int x, const int y) {
                 gDayNightAuto = true;
             }
             break;
+        case 'v':
+        case 'V':
+            gSceneVehiclesEnabled = !gSceneVehiclesEnabled;
+            break;
     }
 
     glutPostRedisplay();

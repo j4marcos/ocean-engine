@@ -48,6 +48,7 @@ int gFpsFrameAccum = 0;
 float gFpsDisplay = 0.0f;
 
 bool gAnimatingCamera = false;
+bool gSceneVehiclesEnabled = true;
 float gCameraT = 0.0f;
 Vec3 P0 = {0.0f, 0.95f, -9.0f};
 Vec3 P1 = {-1.4f, 0.5f, -11.0f};

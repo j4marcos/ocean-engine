@@ -76,20 +76,30 @@ void drawOverlay() {
     const int remH = totalSec % 3600;
     const int mm = remH / 60;
     const int ss = remH % 60;
-    const int dayPct = static_cast<int>(dn.skyDayFactor * 100.0f + 0.5f);
     const char* skyLabel = dn.skyDayFactor >= 0.42f ? "dia" : "noite";
-    char timeBuf[72];
+    const float nightFrac = 1.0f - dn.skyDayFactor;
+    const float nightPct = nightFrac * 100.0f;
+    char timeBuf[128];
     std::snprintf(
         timeBuf,
         sizeof(timeBuf),
-        "Tempo %02d:%02d:%02d  %s  (%d%%)",
+        "Tempo %02d:%02d:%02d  %s   gDayNightCicleMs=%d",
         hh,
         mm,
         ss,
         skyLabel,
-        dayPct);
+        gDayNightEffectiveMs);
     glColor3f(0.82f, 0.86f, 0.98f);
     drawText(18, hudY - 32, timeBuf);
+
+    char vehBuf[48];
+    std::snprintf(
+        vehBuf,
+        sizeof(vehBuf),
+        "Carros/barcos: %s  V",
+        gSceneVehiclesEnabled ? "on" : "off");
+    glColor3f(0.78f, 0.82f, 0.96f);
+    drawText(18, hudY - 48, vehBuf);
 
     char fpsBuf[48];
     std::snprintf(fpsBuf, sizeof(fpsBuf), "FPS: %.1f", gFpsDisplay);

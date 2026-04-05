@@ -212,6 +212,9 @@ static float signedDistanceMovingSpheres(const Vec3& p) {
 }
 
 static float signedDistanceMovingCars(const Vec3& p) {
+    if (!gSceneVehiclesEnabled) {
+        return 1e10f;
+    }
     Vec3 anchor[3];
     movingCarsCompute(anchor);
     float d = 1e10f;
@@ -436,7 +439,7 @@ bool directionalShadowOccluded(const Vec3& p, const Vec3& n, const Vec3& sunDir)
             }
         }
     }
-    {
+    if (gSceneVehiclesEnabled) {
         Vec3 anchor[3];
         movingCarsCompute(anchor);
         for (int i = 0; i < kMovingCarCount; ++i) {
@@ -537,7 +540,7 @@ bool pointLightShadowOccluded(const Vec3& p, const Vec3& n, const Vec3& lightPos
             }
         }
     }
-    {
+    if (gSceneVehiclesEnabled) {
         Vec3 anchor[3];
         movingCarsCompute(anchor);
         for (int i = 0; i < kMovingCarCount; ++i) {

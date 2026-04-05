@@ -40,6 +40,8 @@ extern int gFpsFrameAccum;
 extern float gFpsDisplay;
 
 extern bool gAnimatingCamera;
+/** Carros em movimento + barcos (geometria e luzes pontuais). Tecla `V` no demo. */
+extern bool gSceneVehiclesEnabled;
 extern float gCameraT;
 extern Vec3 P0, P1, P2, P3;
 

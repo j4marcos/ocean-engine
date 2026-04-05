@@ -39,6 +39,9 @@ void drawMovingBezierSpheres() {
 }
 
 void drawMovingCars() {
+    if (!gSceneVehiclesEnabled) {
+        return;
+    }
     glDisable(GL_LIGHTING);
     Vec3 anchors[3];
     movingCarsCompute(anchors);

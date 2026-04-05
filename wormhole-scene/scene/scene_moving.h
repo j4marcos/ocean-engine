@@ -91,7 +91,9 @@ Vec3 carFrontBoxCenterWorld(int carIndex, const Vec3& anchor);
 
 float carForwardXWorld(int carIndex);
 
-/** Preenche as 4 luzes do veículo a partir do mesmo `CarRigidState` que posiciona as caixas. */
+/** Preenche as 4 luzes a partir de um estado já calculado (evita segunda amostragem da curva). */
+void carWritePointLights(const CarRigidState& st, PointLight out[4]);
+/** Compat: recalcula o estado com `carRigidState` (preferir a sobrecarga com `CarRigidState` em laços). */
 void carWritePointLights(int carIndex, const Vec3& anchor, PointLight out[4]);
 
 /** Postes na rua (`scene_world`); tem de coincidir com `kNumBuildings`. */

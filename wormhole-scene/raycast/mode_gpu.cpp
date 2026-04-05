@@ -382,21 +382,32 @@ void raycastSceneGpu() {
             sphFlat[i * 3 + 1] = sph[static_cast<size_t>(i)].y;
             sphFlat[i * 3 + 2] = sph[static_cast<size_t>(i)].z;
         }
-        Vec3 anchors[3];
-        movingCarsCompute(anchors);
         float rearFlat[9];
         float frontFlat[9];
-        for (int i = 0; i < 3; ++i) {
-            CarRigidState st;
-            carRigidState(i, anchors[static_cast<size_t>(i)], st);
-            const Vec3 r = carRearBoxCenterWorld(st);
-            const Vec3 f = carFrontBoxCenterWorld(st);
-            rearFlat[i * 3 + 0] = r.x;
-            rearFlat[i * 3 + 1] = r.y;
-            rearFlat[i * 3 + 2] = r.z;
-            frontFlat[i * 3 + 0] = f.x;
-            frontFlat[i * 3 + 1] = f.y;
-            frontFlat[i * 3 + 2] = f.z;
+        if (!gSceneVehiclesEnabled) {
+            for (int i = 0; i < 3; ++i) {
+                rearFlat[i * 3 + 0] = 0.0f;
+                rearFlat[i * 3 + 1] = -500.0f;
+                rearFlat[i * 3 + 2] = 0.0f;
+                frontFlat[i * 3 + 0] = 0.0f;
+                frontFlat[i * 3 + 1] = -500.0f;
+                frontFlat[i * 3 + 2] = 0.0f;
+            }
+        } else {
+            Vec3 anchors[3];
+            movingCarsCompute(anchors);
+            for (int i = 0; i < 3; ++i) {
+                CarRigidState st;
+                carRigidState(i, anchors[static_cast<size_t>(i)], st);
+                const Vec3 r = carRearBoxCenterWorld(st);
+                const Vec3 f = carFrontBoxCenterWorld(st);
+                rearFlat[i * 3 + 0] = r.x;
+                rearFlat[i * 3 + 1] = r.y;
+                rearFlat[i * 3 + 2] = r.z;
+                frontFlat[i * 3 + 0] = f.x;
+                frontFlat[i * 3 + 1] = f.y;
+                frontFlat[i * 3 + 2] = f.z;
+            }
         }
         gGl.Uniform3fv(gLoc_uMovingSpherePos0, 3, sphFlat);
         gGl.Uniform1f(gLoc_uMovingSphereRadius, kMovingSphereRadius);

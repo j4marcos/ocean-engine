@@ -53,11 +53,7 @@ Vec3 carFrontBoxCenterWorld(const int carIndex, const Vec3& anchor) {
     return carFrontBoxCenterWorld(st);
 }
 
-void carWritePointLights(const int carIndex, const Vec3& anchor, PointLight out[4]) {
-    (void)anchor;
-    CarRigidState st{};
-    const Vec3 ignored{};
-    carRigidState(carIndex, ignored, st);
+void carWritePointLights(const CarRigidState& st, PointLight out[4]) {
     const float px = -st.forwardZ;
     const float pz = st.forwardX;
     const Vec3 fc = carFrontBoxCenterWorld(st);
@@ -74,6 +70,13 @@ void carWritePointLights(const int carIndex, const Vec3& anchor, PointLight out[
     out[1] = {{headX - px * zPairFront, fc.y, headZ - pz * zPairFront}, kCarHeadlightRgb, kCarHeadlightRange};
     out[2] = {{tailX + px * zPairRear, rc.y, tailZ + pz * zPairRear}, kCarTaillightRgb, kCarTaillightRange};
     out[3] = {{tailX - px * zPairRear, rc.y, tailZ - pz * zPairRear}, kCarTaillightRgb, kCarTaillightRange};
+}
+
+void carWritePointLights(const int carIndex, const Vec3& anchor, PointLight out[4]) {
+    (void)anchor;
+    CarRigidState st{};
+    carRigidState(carIndex, anchor, st);
+    carWritePointLights(st, out);
 }
 
 Vec3 lighthouseTowerCenterWorld() {
@@ -93,31 +96,57 @@ float lighthouseYawRad() {
 
 void boatsUpdateDynamicGeometry() {
     constexpr float ph = 1.0f;
+    if (!gSceneVehiclesEnabled) {
+        constexpr float hx = 0.0f;
+        constexpr float hz = 0.0f;
+        constexpr float deckY = -400.0f;
+        const float hullCy = deckY - kBoatHullHalfY;
+        for (int b = 0; b < kNumBoats; ++b) {
+            if (gBoatHullBoxIndex[static_cast<size_t>(b)] < 0) {
+                continue;
+            }
+            gBoxes[static_cast<size_t>(gBoatHullBoxIndex[static_cast<size_t>(b)])].center = {hx, hullCy, hz};
+            gBoxes[static_cast<size_t>(gBoatPoleBoxIndex[static_cast<size_t>(b)])].center = {hx, deckY + ph, hz};
+            const float bulbCy = postBulbCenterYFromBaseY(deckY, ph);
+            gSpheres[static_cast<size_t>(gBoatBulbSphereIndex[static_cast<size_t>(b)])].center = {hx, bulbCy, hz};
+            const size_t li = static_cast<size_t>(kIdxFirstBoatPointLight + b);
+            if (gPointLights.size() > li) {
+                gPointLights[li].range = 0.0f;
+            }
+        }
+        return;
+    }
+
+    constexpr float kTwoPiOver3 = 2.0f * 3.14159265359f / 3.0f;
     const Vec3& hb = gWormhole.holeB.center;
     const float cx = hb.x;
     const float cz = hb.z;
     const float t = gSceneTimeSec;
+    const float orbitAng = kBoatOrbitSpeed * t;
+    const float driftT = kBoatDriftFreq * t;
+    const float yawT = kBoatYawFreq * t;
+    const float bobT = kBoatBobFreq * t;
 
     for (int b = 0; b < kNumBoats; ++b) {
         if (gBoatHullBoxIndex[static_cast<size_t>(b)] < 0) {
             continue;
         }
-        const float phase = static_cast<float>(b) * (2.0f * 3.14159265359f / 3.0f);
-        float ang = phase + kBoatOrbitSpeed * t;
+        const float bf = static_cast<float>(b);
+        const float phase = bf * kTwoPiOver3;
+        float ang = phase + orbitAng;
         float x = cx + kBoatOrbitRadius * std::cos(ang);
         float z = cz + kBoatOrbitRadius * std::sin(ang);
-        const float bf = static_cast<float>(b);
-        x += kBoatDriftAmp * std::sin(kBoatDriftFreq * t + bf * 1.9f);
-        x += kBoatDriftAmp * 0.42f * std::sin(kBoatDriftFreq * 1.65f * t + bf * 2.7f);
-        z += kBoatDriftAmp * 0.88f * std::cos(kBoatDriftFreq * 0.82f * t + bf * 2.3f);
-        z += kBoatDriftAmp * 0.38f * std::cos(kBoatDriftFreq * 1.4f * t + bf * 1.1f);
-        const float bob = kBoatBobAmp * std::sin(kBoatBobFreq * t + bf * 0.7f);
+        x += kBoatDriftAmp * std::sin(driftT + bf * 1.9f);
+        x += kBoatDriftAmp * 0.42f * std::sin(driftT * 1.65f + bf * 2.7f);
+        z += kBoatDriftAmp * 0.88f * std::cos(driftT * 0.82f + bf * 2.3f);
+        z += kBoatDriftAmp * 0.38f * std::cos(driftT * 1.4f + bf * 1.1f);
+        const float bob = kBoatBobAmp * std::sin(bobT + bf * 0.7f);
         const float deckY = kBoatDeckTopY + bob;
         const float hullCy = deckY - kBoatHullHalfY;
-        const float tiltX = kBoatYawTiltAmp * std::sin(kBoatYawFreq * t + bf * 2.0f);
-        const float tiltZ = kBoatYawTiltAmp * 0.92f * std::cos(kBoatYawFreq * 0.86f * t + bf * 1.4f);
-        const float tiltX2 = kBoatYawTiltAmp * 0.55f * std::sin(kBoatYawFreq * 1.55f * t + bf * 0.6f);
-        const float tiltZ2 = kBoatYawTiltAmp * 0.5f * std::cos(kBoatYawFreq * 1.35f * t + bf * 2.2f);
+        const float tiltX = kBoatYawTiltAmp * std::sin(yawT + bf * 2.0f);
+        const float tiltZ = kBoatYawTiltAmp * 0.92f * std::cos(yawT * 0.86f + bf * 1.4f);
+        const float tiltX2 = kBoatYawTiltAmp * 0.55f * std::sin(yawT * 1.55f + bf * 0.6f);
+        const float tiltZ2 = kBoatYawTiltAmp * 0.5f * std::cos(yawT * 1.35f + bf * 2.2f);
 
         const float mx = tiltX + tiltX2;
         const float mz = tiltZ + tiltZ2;
@@ -130,6 +159,7 @@ void boatsUpdateDynamicGeometry() {
         if (gPointLights.size() > li) {
             const float ly = postPointLightYFromBaseY(deckY, ph);
             gPointLights[li].position = {x + mx, ly, z + mz};
+            gPointLights[li].range = kBoatMastLampRange;
         }
     }
 }
@@ -141,15 +171,27 @@ void sceneUpdateDynamicElements() {
 
     boatsUpdateDynamicGeometry();
 
-    Vec3 anchors[kMovingCarCount];
-    movingCarsCompute(anchors);
+    if (!gSceneVehiclesEnabled) {
+        size_t li = static_cast<size_t>(kIdxFirstCarPointLight);
+        for (int ci = 0; ci < kMovingCarCount; ++ci) {
+            for (int j = 0; j < 4; ++j) {
+                gPointLights[li].range = 0.0f;
+                li++;
+            }
+        }
+    } else {
+        CarRigidState carStates[kMovingCarCount];
+        for (int ci = 0; ci < kMovingCarCount; ++ci) {
+            carBeachMotionSample(ci, carStates[ci].anchor, carStates[ci].forwardX, carStates[ci].forwardZ);
+        }
 
-    size_t li = static_cast<size_t>(kIdxFirstCarPointLight);
-    for (int ci = 0; ci < kMovingCarCount; ++ci) {
-        PointLight block[4];
-        carWritePointLights(ci, anchors[ci], block);
-        for (int j = 0; j < 4; ++j) {
-            gPointLights[li++] = block[j];
+        size_t li = static_cast<size_t>(kIdxFirstCarPointLight);
+        for (int ci = 0; ci < kMovingCarCount; ++ci) {
+            PointLight block[4];
+            carWritePointLights(carStates[ci], block);
+            for (int j = 0; j < 4; ++j) {
+                gPointLights[li++] = block[j];
+            }
         }
     }
 
