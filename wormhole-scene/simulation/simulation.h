@@ -32,7 +32,9 @@ float SignedDistanceSphere(const Vec3& p, const Sphere& s);
 float SignedDistanceAabb(const Vec3& p, const Aabb& b);
 float SignedDistanceFloor(const Vec3& p);
 float SignedDistanceScene(const Vec3& p);
+float SignedDistanceSceneBvh(const Vec3& p); // Acelerado com BVH
 Vec3 sceneColorAt(const Vec3& p);
+Vec3 sceneColorAtBvh(const Vec3& p); // Acelerado com BVH
 Vec3 estimateNormal(const Vec3& p);
 
 Vec3 teleportToOppositeSide(
@@ -59,3 +61,6 @@ void computeDayNightLighting(DayNightLighting& out);
 Vec3 skyColor(const Vec3& dir);
 /** bounce: 0 = câmera; 1 = raio refletido no oceano (só iluminação direta, sem 2.ª reflexão no plano). */
 Vec3 traceRay(const Vec3& origin, Vec3 dir, int bounce = 0);
+
+// Atualizar BVH e bounding sphere após movimento de objetos dinâmicos
+void updateSceneBvh();
