@@ -3,6 +3,7 @@
 #include "wormhole3d_simulation.h"
 #include "wormhole3d_gpu_shaders.h"
 #include "scene_gpu.h"
+#include "scene_textures.h"
 
 #include <algorithm>
 #include <cmath>
@@ -94,6 +95,10 @@ GLint gLoc_uSunDiffuse = -1;
 GLint gLoc_uAmbient = -1;
 GLint gLoc_uPointLightScale = -1;
 GLint gLoc_uSkyDayFactor = -1;
+GLint gLoc_uTexBrick = -1;
+GLint gLoc_uTexTerrain = -1;
+GLint gLoc_uTexBrickLoaded = -1;
+GLint gLoc_uTexTerrainLoaded = -1;
 
 void* glResolve(const char* name) {
     void* p = reinterpret_cast<void*>(glXGetProcAddress(reinterpret_cast<const GLubyte*>(name)));
@@ -262,6 +267,11 @@ bool initGpuRaycast() {
     gLoc_uAmbient = gGl.GetUniformLocation(gRayProgram, "uAmbient");
     gLoc_uPointLightScale = gGl.GetUniformLocation(gRayProgram, "uPointLightScale");
     gLoc_uSkyDayFactor = gGl.GetUniformLocation(gRayProgram, "uSkyDayFactor");
+    // Texturas de superfície (opcionais — não fatal se -1)
+    gLoc_uTexBrick        = gGl.GetUniformLocation(gRayProgram, "uTexBrick");
+    gLoc_uTexTerrain      = gGl.GetUniformLocation(gRayProgram, "uTexTerrain");
+    gLoc_uTexBrickLoaded  = gGl.GetUniformLocation(gRayProgram, "uTexBrickLoaded");
+    gLoc_uTexTerrainLoaded= gGl.GetUniformLocation(gRayProgram, "uTexTerrainLoaded");
 
     if (gLoc_aPos < 0 || gLoc_uCamPos < 0 || gLoc_uRayForward < 0 || gLoc_uRayRight < 0 || gLoc_uRayUp < 0 ||
         gLoc_uResolution < 0 || gLoc_uAspect < 0 || gLoc_uTanHalfFov < 0 ||
@@ -356,11 +366,28 @@ void raycastSceneGpu() {
 
     packSceneObjectsForGpu(gScenePack);
     uploadSceneDataTexture(gSceneDataTex, gScenePack.pixels.data());
+
+    // Unit 0: scene data
     gGl.ActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, gSceneDataTex);
     gGl.Uniform1i(gLoc_uSceneData, 0);
     gGl.Uniform1f(gLoc_uSceneInvW, 1.0f / static_cast<float>(kSceneDataWidth));
     gGl.Uniform1i(gLoc_uObjectCount, gScenePack.objectCount);
+
+    // Unit 1: textura de tijolo (prédios)
+    gGl.ActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, gTexBrickDiffuse);
+    if (gLoc_uTexBrick >= 0)        gGl.Uniform1i(gLoc_uTexBrick, 1);
+    if (gLoc_uTexBrickLoaded >= 0)  gGl.Uniform1i(gLoc_uTexBrickLoaded, gTexBrickDiffuse != 0 ? 1 : 0);
+
+    // Unit 2: textura de terreno (montanhas)
+    gGl.ActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, gTexTerrainDiffuse);
+    if (gLoc_uTexTerrain >= 0)       gGl.Uniform1i(gLoc_uTexTerrain, 2);
+    if (gLoc_uTexTerrainLoaded >= 0) gGl.Uniform1i(gLoc_uTexTerrainLoaded, gTexTerrainDiffuse != 0 ? 1 : 0);
+
+    // Restaura unit 0 ativa
+    gGl.ActiveTexture(GL_TEXTURE0);
 
     {
         float pos[kMaxPointLights * 3] = {};

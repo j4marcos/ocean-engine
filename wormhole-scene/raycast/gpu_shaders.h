@@ -65,6 +65,12 @@ uniform float uAmbient;
 uniform float uPointLightScale;
 uniform float uSkyDayFactor;
 
+// Texturas de superfície (modo GPU)
+uniform sampler2D uTexBrick;    // red_brick_03_diff_1k.jpg  — prédios
+uniform sampler2D uTexTerrain;  // Terrain002_2K_Color.jpg   — montanhas
+uniform int uTexBrickLoaded;    // 1 se a textura foi carregada, 0 caso contrário
+uniform int uTexTerrainLoaded;
+
 vec3 warpFieldFromHole(vec3 p, vec3 center, float radius, float strength) {
     vec3 toCenter = center - p;
     float d = length3(toCenter);
@@ -104,6 +110,38 @@ float sdfScene(vec3 p) {
     return d;
 }
 
+// ─── Classificação de AABBs ────────────────────────────────────────────────────
+bool isBuilding(vec3 halfSize) {
+    return halfSize.x >= 1.0 && halfSize.x <= 3.0
+        && halfSize.z >= 1.0 && halfSize.z <= 3.0
+        && halfSize.y > 1.5;
+}
+bool isMountain(vec3 halfSize) {
+    return halfSize.x > 5.0 && halfSize.y > 1.0;
+}
+
+// UV por face da AABB — posição local, detecta face pelo eixo dominante.
+// tileM: quantos metros equivalem a 1 repetição UV.
+vec2 aabb_uv(vec3 p, vec3 center, vec3 hs, float tileM) {
+    vec3 lp = (p - center) / max(hs, vec3(0.001)); // [-1, 1]
+    vec3 ap = abs(lp);
+    float u, v;
+    if (ap.x >= ap.y && ap.x >= ap.z) {
+        // Face X
+        u = (lp.z + 1.0) * 0.5 * (hs.z * 2.0 / tileM);
+        v = (lp.y + 1.0) * 0.5 * (hs.y * 2.0 / tileM);
+    } else if (ap.y >= ap.x && ap.y >= ap.z) {
+        // Face Y (topo)
+        u = (lp.x + 1.0) * 0.5 * (hs.x * 2.0 / tileM);
+        v = (lp.z + 1.0) * 0.5 * (hs.z * 2.0 / tileM);
+    } else {
+        // Face Z
+        u = (lp.x + 1.0) * 0.5 * (hs.x * 2.0 / tileM);
+        v = (lp.y + 1.0) * 0.5 * (hs.y * 2.0 / tileM);
+    }
+    return vec2(u, v);
+}
+
 vec3 sceneColorAt(vec3 p) {
     float bestD = sdfFloor(p);
     vec3 color = vec3(0.35, 0.37, 0.61);
@@ -120,6 +158,7 @@ vec3 sceneColorAt(vec3 p) {
         vec4 t2 = texture2D(uSceneData, vec2(u, v2));
         vec3 center = vec3(t0.g, t0.b, t0.a);
         if (t0.r < 0.5) {
+            // Esfera — cor sólida
             float di = sdfSphere(p, center, t1.r);
             if (di < bestD) {
                 bestD = di;
@@ -130,7 +169,17 @@ vec3 sceneColorAt(vec3 p) {
             float di = sdfAabb(p, center, halfSize);
             if (di < bestD) {
                 bestD = di;
-                color = vec3(t1.a, t2.r, t2.g);
+                vec3 solidColor = vec3(t1.a, t2.r, t2.g);
+                // Aplica textura conforme tipo
+                if (isBuilding(halfSize) && uTexBrickLoaded != 0) {
+                    vec2 uv = aabb_uv(p, center, halfSize, 1.5);
+                    color = texture2D(uTexBrick, uv).rgb;
+                } else if (isMountain(halfSize) && uTexTerrainLoaded != 0) {
+                    vec2 uv = aabb_uv(p, center, halfSize, 4.0);
+                    color = texture2D(uTexTerrain, uv).rgb;
+                } else {
+                    color = solidColor;
+                }
             }
         }
     }

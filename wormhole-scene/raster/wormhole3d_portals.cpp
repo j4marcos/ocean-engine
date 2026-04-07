@@ -2,6 +2,7 @@
 #include "wormhole3d_globals.h"
 #include "wormhole3d_simulation.h"
 #include "scene_prefabs.h"
+#include "scene_textures.h"
 
 #include <GL/gl.h>
 #include <GL/glu.h>
@@ -87,6 +88,104 @@ static Vec3 v3_normalize(const Vec3& v) {
 }
 static Vec3 v3_cross(const Vec3& a, const Vec3& b) {
     return {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x};
+}
+
+// ─── Helpers de classificação (espelhos dos que estão em wormhole3d_raster.cpp) ─
+static inline bool pIsBoxThinPole(const Aabb& b) {
+    return b.halfSize.x < 0.12f && b.halfSize.z < 0.12f;
+}
+static inline bool pIsBoxSlab(const Aabb& b) { return b.halfSize.y < 0.08f; }
+static inline bool pIsBoxTiny(const Aabb& b) {
+    return b.halfSize.x < 0.01f && b.halfSize.y < 0.01f && b.halfSize.z < 0.01f;
+}
+static inline bool pIsBuilding(const Aabb& b) {
+    return b.halfSize.x >= 1.0f && b.halfSize.x <= 3.0f
+        && b.halfSize.z >= 1.0f && b.halfSize.z <= 3.0f
+        && b.halfSize.y > 1.5f;
+}
+static inline bool pIsMountain(const Aabb& b) {
+    return b.halfSize.x > 5.0f && b.halfSize.y > 1.0f;
+}
+
+// Desenho manual com UV tiling — idêntico ao wormhole3d_raster.cpp
+static void pDrawTexturedBox(const Aabb& box, float tileM) {
+    const float hx = box.halfSize.x, hy = box.halfSize.y, hz = box.halfSize.z;
+    const float uX = hx * 2.0f / tileM;
+    const float uY = hy * 2.0f / tileM;
+    const float uZ = hz * 2.0f / tileM;
+    glBegin(GL_QUADS);
+    // +X
+    glTexCoord2f(0.0f, 0.0f); glVertex3f( hx, -hy,  hz);
+    glTexCoord2f(uZ,   0.0f); glVertex3f( hx, -hy, -hz);
+    glTexCoord2f(uZ,   uY  ); glVertex3f( hx,  hy, -hz);
+    glTexCoord2f(0.0f, uY  ); glVertex3f( hx,  hy,  hz);
+    // -X
+    glTexCoord2f(0.0f, 0.0f); glVertex3f(-hx, -hy, -hz);
+    glTexCoord2f(uZ,   0.0f); glVertex3f(-hx, -hy,  hz);
+    glTexCoord2f(uZ,   uY  ); glVertex3f(-hx,  hy,  hz);
+    glTexCoord2f(0.0f, uY  ); glVertex3f(-hx,  hy, -hz);
+    // +Z
+    glTexCoord2f(0.0f, 0.0f); glVertex3f(-hx, -hy,  hz);
+    glTexCoord2f(uX,   0.0f); glVertex3f( hx, -hy,  hz);
+    glTexCoord2f(uX,   uY  ); glVertex3f( hx,  hy,  hz);
+    glTexCoord2f(0.0f, uY  ); glVertex3f(-hx,  hy,  hz);
+    // -Z
+    glTexCoord2f(0.0f, 0.0f); glVertex3f( hx, -hy, -hz);
+    glTexCoord2f(uX,   0.0f); glVertex3f(-hx, -hy, -hz);
+    glTexCoord2f(uX,   uY  ); glVertex3f(-hx,  hy, -hz);
+    glTexCoord2f(0.0f, uY  ); glVertex3f( hx,  hy, -hz);
+    // +Y
+    glTexCoord2f(0.0f, 0.0f); glVertex3f(-hx,  hy, -hz);
+    glTexCoord2f(uX,   0.0f); glVertex3f( hx,  hy, -hz);
+    glTexCoord2f(uX,   uZ  ); glVertex3f( hx,  hy,  hz);
+    glTexCoord2f(0.0f, uZ  ); glVertex3f(-hx,  hy,  hz);
+    // -Y
+    glTexCoord2f(0.0f, 0.0f); glVertex3f(-hx, -hy,  hz);
+    glTexCoord2f(uX,   0.0f); glVertex3f( hx, -hy,  hz);
+    glTexCoord2f(uX,   uZ  ); glVertex3f( hx, -hy, -hz);
+    glTexCoord2f(0.0f, uZ  ); glVertex3f(-hx, -hy, -hz);
+    glEnd();
+}
+
+static void drawAllBoxesPortal() {
+    for (size_t i = 0; i < gBoxes.size(); ++i) {
+        const Aabb& box = gBoxes[i];
+        const RGBA& c   = box.color;
+        glPushMatrix();
+        glTranslatef(box.center.x, box.center.y, box.center.z);
+        if (pIsBoxTiny(box)) { glPopMatrix(); continue; }
+        if (pIsBoxThinPole(box)) {
+            glDisable(GL_TEXTURE_2D);
+            glColor3f(c.r * 0.85f + 0.15f, c.g * 0.85f + 0.15f, c.b * 0.85f + 0.15f);
+            glScalef(box.halfSize.x * 2.0f, box.halfSize.y * 2.0f, box.halfSize.z * 2.0f);
+            glutSolidCube(1.0); glPopMatrix(); continue;
+        }
+        if (pIsBoxSlab(box)) {
+            glDisable(GL_TEXTURE_2D);
+            glColor3f(c.r, c.g, c.b);
+            glScalef(box.halfSize.x * 2.0f, box.halfSize.y * 2.0f, box.halfSize.z * 2.0f);
+            glutSolidCube(1.0); glPopMatrix(); continue;
+        }
+        if (pIsBuilding(box) && gTexBrickDiffuse != 0) {
+            glEnable(GL_TEXTURE_2D);
+            glBindTexture(GL_TEXTURE_2D, gTexBrickDiffuse);
+            glColor3f(1.0f, 1.0f, 1.0f);
+            pDrawTexturedBox(box, 1.5f);
+            glDisable(GL_TEXTURE_2D); glPopMatrix(); continue;
+        }
+        if (pIsMountain(box) && gTexTerrainDiffuse != 0) {
+            glEnable(GL_TEXTURE_2D);
+            glBindTexture(GL_TEXTURE_2D, gTexTerrainDiffuse);
+            glColor3f(1.0f, 1.0f, 1.0f);
+            pDrawTexturedBox(box, 4.0f);
+            glDisable(GL_TEXTURE_2D); glPopMatrix(); continue;
+        }
+        glDisable(GL_TEXTURE_2D);
+        glColor3f(c.r, c.g, c.b);
+        glScalef(box.halfSize.x * 2.0f, box.halfSize.y * 2.0f, box.halfSize.z * 2.0f);
+        glutSolidCube(1.0);
+        glPopMatrix();
+    }
 }
 
 static Vec3 holeCenter(int idx) {
@@ -306,21 +405,8 @@ void renderPortalView(int idx, const PortalFBO& fbo) {
         glPopMatrix();
     }
 
-    // Caixas
-    for (size_t i = 0; i < gBoxes.size(); ++i) {
-        const RGBA& c = gBoxes[i].color;
-        const bool thinPole = gBoxes[i].halfSize.x < 0.12f && gBoxes[i].halfSize.z < 0.12f;
-        if (thinPole) {
-            glColor3f(c.r * 0.85f + 0.15f, c.g * 0.85f + 0.15f, c.b * 0.85f + 0.15f);
-        } else {
-            glColor3f(c.r, c.g, c.b);
-        }
-        glPushMatrix();
-        glTranslatef(gBoxes[i].center.x, gBoxes[i].center.y, gBoxes[i].center.z);
-        glScalef(gBoxes[i].halfSize.x * 2.0f, gBoxes[i].halfSize.y * 2.0f, gBoxes[i].halfSize.z * 2.0f);
-        glutSolidCube(1.0);
-        glPopMatrix();
-    }
+    // Caixas — texturizadas ou cor sólida conforme tipo
+    drawAllBoxesPortal();
 
     glPopMatrix(); // modelview
     glMatrixMode(GL_PROJECTION);

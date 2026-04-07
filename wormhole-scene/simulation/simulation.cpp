@@ -3,6 +3,7 @@
 #include "scene_prefabs.h"
 #include "scene_moving.h"
 #include "scene/bvh.h"
+#include "cpu_texture.h"
 
 #include <algorithm>
 #include <cmath>
@@ -190,11 +191,23 @@ Vec3 sceneColorAt(const Vec3& p) {
     return sceneColorAtBvh(p);
 }
 
+// Classificação de AABB (espelho das funções no raster)
+static inline bool simIsBuilding(const Aabb& b) {
+    return b.halfSize.x >= 1.0f && b.halfSize.x <= 3.0f
+        && b.halfSize.z >= 1.0f && b.halfSize.z <= 3.0f
+        && b.halfSize.y > 1.5f;
+}
+static inline bool simIsMountain(const Aabb& b) {
+    return b.halfSize.x > 5.0f && b.halfSize.y > 1.0f;
+}
+static inline bool simIsTiny(const Aabb& b) {
+    return b.halfSize.x < 0.01f && b.halfSize.y < 0.01f && b.halfSize.z < 0.01f;
+}
+
 Vec3 sceneColorAtBvh(const Vec3& p) {
     float bestD = SignedDistanceFloor(p);
     Vec3 color = {kSceneFloorMaterial.r, kSceneFloorMaterial.g, kSceneFloorMaterial.b};
 
-    // TODO: Usar BVH para encontrar o objeto mais próximo
     for (size_t i = 0; i < gSpheres.size(); ++i) {
         const float d = SignedDistanceSphere(p, gSpheres[i]);
         if (d < bestD) {
@@ -205,11 +218,37 @@ Vec3 sceneColorAtBvh(const Vec3& p) {
     }
 
     for (size_t i = 0; i < gBoxes.size(); ++i) {
-        const float d = SignedDistanceAabb(p, gBoxes[i]);
+        const Aabb& box = gBoxes[i];
+        if (simIsTiny(box)) continue;
+        const float d = SignedDistanceAabb(p, box);
         if (d < bestD) {
             bestD = d;
-            const RGBA& c = gBoxes[i].color;
-            color = {c.r, c.g, c.b};
+            const RGBA& c = box.color;
+
+            if (simIsBuilding(box) && gCpuBrickDiffuse.loaded()) {
+                // UV tiling ~1.5m por tile, baseado na face tocada
+                float u = 0.0f, v = 0.0f;
+                aabbSurfaceUV(
+                    p.x, p.y, p.z,
+                    box.center.x, box.center.y, box.center.z,
+                    box.halfSize.x, box.halfSize.y, box.halfSize.z,
+                    1.5f, u, v);
+                const CpuTexSample s = sampleTexBilinear(gCpuBrickDiffuse, u, v);
+                color = {s.r, s.g, s.b};
+            } else if (simIsMountain(box) && gCpuTerrainDiffuse.loaded()) {
+                // UV tiling ~4m por tile
+                float u = 0.0f, v = 0.0f;
+                aabbSurfaceUV(
+                    p.x, p.y, p.z,
+                    box.center.x, box.center.y, box.center.z,
+                    box.halfSize.x, box.halfSize.y, box.halfSize.z,
+                    4.0f, u, v);
+                const CpuTexSample s = sampleTexBilinear(gCpuTerrainDiffuse, u, v);
+                color = {s.r, s.g, s.b};
+            } else {
+                // Cor sólida para postes, lajes, barcos, etc.
+                color = {c.r, c.g, c.b};
+            }
         }
     }
 
