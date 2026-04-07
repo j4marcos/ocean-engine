@@ -7,6 +7,8 @@
 #include "wormhole3d_raycast_gpu.h"
 #include "wormhole3d_simulation.h"
 #include "wormhole3d_ui.h"
+#include "scene_textures.h"
+#include "cpu_texture.h"
 
 #include <algorithm>
 #include <cstdlib>
@@ -250,7 +252,7 @@ int main(int argc, char** argv) {
     // inicializando a janela da app
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH );
-    glutInitContextVersion(2, 1); // não disponível em alguns ambientes
+   glutInitContextVersion(2, 1); // não disponível em alguns ambientes
     glutInitWindowSize(gWindowWidth, gWindowHeight);
     glutInitWindowPosition(100, 60);
     glutCreateWindow("Raycast Wormhole Simulation 3D");
@@ -275,6 +277,11 @@ int main(int argc, char** argv) {
     gluQuadricTexture(sphereQuadric, GL_FALSE);
     gluQuadricNormals(sphereQuadric, GLU_SMOOTH);
 
+    // carregando texturas da cena (deve ser feito APÓS criar o contexto GL)
+    loadSceneTextures();
+    // texturas CPU-side para o ray tracer (modo 2)
+    loadCpuTextures();
+
     // init music background
     startBackgroundMusic(argv[0]);
 
@@ -285,5 +292,7 @@ int main(int argc, char** argv) {
     glutIdleFunc(idle);
 
     glutMainLoop();
+    freeCpuTextures();
+    freeSceneTextures();
     return 0;
 }
