@@ -10,6 +10,8 @@ INCLUDES := -I. -Iaudio -Isimulation -Itexture -Ioverlay -Iraster -Iraycast -Isc
 SRCS := \
 	audio/wormhole3d_audio.cpp \
 	wormhole3d_globals.cpp \
+	wormhole3d_bvh_globals.cpp \
+	scene/bvh.cpp \
 	scene/scene_gpu.cpp \
 	scene/scene_prefabs.cpp \
 	scene/scene_world.cpp \

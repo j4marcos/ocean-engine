@@ -4,6 +4,17 @@ struct Vec3 {
     float x;
     float y;
     float z;
+
+    float operator[](int i) const {
+        if (i == 0) return x;
+        if (i == 1) return y;
+        return z;
+    }
+    float& operator[](int i) {
+        if (i == 0) return x;
+        if (i == 1) return y;
+        return z;
+    }
 };
 
 struct RGBA {

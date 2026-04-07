@@ -232,4 +232,8 @@ void sceneBuild() {
 
     boatsUpdateDynamicGeometry();
     syncDynamicPrimitivesToScene();
+
+    // Construir BVH e calcular bounding sphere para aceleração do ray tracing
+    scene::buildBvh(scene::gSceneBvh, gSpheres, gBoxes);
+    scene::computeSceneBoundingSphere(gSpheres, gBoxes);
 }

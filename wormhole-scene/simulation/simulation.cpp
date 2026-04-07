@@ -2,12 +2,13 @@
 #include "wormhole3d_globals.h"
 #include "scene_prefabs.h"
 #include "scene_moving.h"
+#include "scene/bvh.h"
 
 #include <algorithm>
 #include <cmath>
 
-float clampf(const float v, const float lo, const float hi) {
-    return std::max(lo, std::min(v, hi));
+float clampf(float v, float lo, float hi) {
+    return v < lo ? lo : (v > hi ? hi : v);
 }
 
 float length3(const Vec3& v) {
@@ -168,7 +169,14 @@ void movingBezierSpheresCompute(Vec3 spheres[3]) {
 }
 
 float SignedDistanceScene(const Vec3& p) {
+    return SignedDistanceSceneBvh(p);
+}
+
+float SignedDistanceSceneBvh(const Vec3& p) {
     float d = SignedDistanceFloor(p);
+
+    // Ainda não temos BVH na CPU, fallback para todos objetos
+    // TODO: Implementar traversal de BVH aqui
     for (size_t i = 0; i < gSpheres.size(); ++i) {
         d = std::min(d, SignedDistanceSphere(p, gSpheres[i]));
     }
@@ -179,9 +187,14 @@ float SignedDistanceScene(const Vec3& p) {
 }
 
 Vec3 sceneColorAt(const Vec3& p) {
+    return sceneColorAtBvh(p);
+}
+
+Vec3 sceneColorAtBvh(const Vec3& p) {
     float bestD = SignedDistanceFloor(p);
     Vec3 color = {kSceneFloorMaterial.r, kSceneFloorMaterial.g, kSceneFloorMaterial.b};
 
+    // TODO: Usar BVH para encontrar o objeto mais próximo
     for (size_t i = 0; i < gSpheres.size(); ++i) {
         const float d = SignedDistanceSphere(p, gSpheres[i]);
         if (d < bestD) {
@@ -492,8 +505,18 @@ Vec3 traceRay(const Vec3& origin, Vec3 dir, const int bounce) {
     const float warpHitDirEps = 0.02f;
     const float exitMargin = 0.04f;
 
+    // Early exit: raio não intersecta a bounding sphere → devolve céu imediatamente
+    if (bounce == 0 && gUseBvh && scene::gSceneBoundingSphereRadius > 1.0f) {
+        const float tScene = scene::rayIntersectsSceneBoundingSphere(origin, dir);
+        if (tScene < 0.0f) {
+            return skyColor(dir);
+        }
+    }
+
     for (int i = 0; i < maxSteps; ++i) {
-        const float dScene = SignedDistanceScene(position);
+        // Usa sempre SignedDistanceSceneBvh local (que já faz o fallback completo)
+        const float dScene = SignedDistanceSceneBvh(position);
+
         if (dScene < hitEps) {
             const Vec3 n = estimateNormal(position);
             const float distA = length3(sub3(position, gWormhole.holeA.center));
@@ -507,7 +530,9 @@ Vec3 traceRay(const Vec3& origin, Vec3 dir, const int bounce) {
                     continue;
                 }
             }
-            const Vec3 base = sceneColorAt(position);
+
+            const Vec3 base = sceneColorAtBvh(position);
+
             if (bounce == 0 && isInfiniteFloorAt(position)) {
                 const Vec3 d = normalize3(dir);
                 const Vec3 refl = sub3(d, scale3(n, 2.0f * dot3(d, n)));
@@ -568,4 +593,9 @@ Vec3 traceRay(const Vec3& origin, Vec3 dir, const int bounce) {
         return applyOceanTint(skyColor(dir));
     }
     return skyColor(dir);
+}
+
+void updateSceneBvh() {
+    scene::buildBvh(scene::gSceneBvh, gSpheres, gBoxes);
+    scene::computeSceneBoundingSphere(gSpheres, gBoxes);
 }

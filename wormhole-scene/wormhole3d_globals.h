@@ -75,3 +75,9 @@ extern float gSkyDaySpan;
 extern float gPointLightNightMix;
 
 extern GLUquadric* sphereQuadric;
+
+// BVH e bounding sphere — definições em scene/bvh.cpp, declarações em scene/bvh.h
+#include "scene/bvh.h"
+
+/** Se true, usa early-exit pela bounding sphere e BVH no ray tracing CPU. */
+extern bool gUseBvh;
