@@ -17,6 +17,7 @@ SRCS := \
 	simulation/simulation.cpp \
 	texture/wormhole3d_init.cpp \
 	raster/wormhole3d_raster.cpp \
+	raster/wormhole3d_portals.cpp \
 	raycast/mode_cpu.cpp \
 	raycast/mode_gpu.cpp \
 	raycast/raycast.cpp \
