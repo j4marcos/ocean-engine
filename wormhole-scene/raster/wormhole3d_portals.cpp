@@ -206,39 +206,50 @@ void renderPortalView(int idx, const PortalFBO& fbo) {
     const Vec3 oppositeCenter = holeCenter(oppositeIdx);
     const Vec3 myCenter = holeCenter(idx);
 
-    // Normal do portal (apontando para a câmera real, lado de fora do disco)
-    Vec3 portalNormal = v3_normalize(v3_sub(gCamera.position, myCenter));
+    // -----------------------------------------------------------------------
+    // Câmera virtual para wormhole (não é espelho — é passagem):
+    //
+    // O portal A tem normal nA (do centro pro observador).
+    // A câmera real está em:  myCenter + nA * dist + lateralOffset
+    // A câmera virtual deve emergir pelo portal oposto pelo mesmo lado relativo,
+    // ou seja: oppositeCenter + nB * dist + lateralOffset,
+    // onde nB é a normal do portal oposto voltada para fora (= -nA para portais
+    // coaxiais, mas aqui usando a direção câmera→oposto).
+    //
+    // O forward da câmera virtual é o MESMO da câmera real (não espelhado).
+    // -----------------------------------------------------------------------
 
-    // Offset da câmera real em relação ao centro do portal
+    // Normal do portal visitado (do centro ao observador), normalizada
+    Vec3 myNormal = v3_normalize(v3_sub(gCamera.position, myCenter));
+
+    // Offset da câmera real em relação ao centro do portal visitado
     const Vec3 camOffset = v3_sub(gCamera.position, myCenter);
 
-    // Decompor offset em componentes paralela e perpendicular ao portal
-    const float dotN = camOffset.x * portalNormal.x + camOffset.y * portalNormal.y + camOffset.z * portalNormal.z;
-    const Vec3 parallelComp = v3_scale(portalNormal, dotN);
-    const Vec3 lateralComp = v3_sub(camOffset, parallelComp);
+    // Componente paralela ao normal (profundidade em frente ao portal)
+    const float distFront = camOffset.x * myNormal.x + camOffset.y * myNormal.y + camOffset.z * myNormal.z;
 
-    // Câmera virtual fica do lado oposto, na mesma distância perpendicular,
-    // e com o MESMO deslocamento lateral (preserva o ângulo relativo ao portal).
-    // A normal aponta para FORA do portal oposto, então a câmera fica em:
-    //   oppositeCenter - parallelComp * (para frente do portal) + lateralComp
-    const Vec3 virtualCam = v3_add(oppositeCenter, v3_sub(lateralComp, v3_scale(portalNormal, dotN * 0.15f)));
+    // Componente lateral (deslocamento no plano do portal)
+    const Vec3 lateralComp = v3_sub(camOffset, v3_scale(myNormal, distFront));
 
-    // Direção do olhar da câmera real em coordenadas do mundo
+    // Normal do portal oposto: usamos a direção do portal oposto para o portal
+    // visitado como eixo de saída (portais se "olham"). Isso coloca a câmera
+    // virtual do lado de fora (frente) do portal oposto.
+    const Vec3 oppAxis = v3_normalize(v3_sub(myCenter, oppositeCenter)); // aponta para fora do oposto
+
+    // Câmera virtual: emerge do lado de fora do portal oposto, com a mesma
+    // distância radial e mesmo deslocamento lateral.
+    const Vec3 virtualCam = v3_add(v3_add(oppositeCenter, v3_scale(oppAxis, distFront)), lateralComp);
+
+    // A câmera virtual olha na MESMA direção que a câmera real (não espelha)
     const Vec3 eyeDir = v3_normalize(rayForward());
+    const Vec3 virtualTarget = v3_add(virtualCam, eyeDir);
 
-    // Projeção do eyeDir no portal: flip na componente paralela ao normal do portal
-    // Isso faz com que a câmera virtual olhe na direção espelhada pelo portal
-    const float eyeDotN = eyeDir.x * portalNormal.x + eyeDir.y * portalNormal.y + eyeDir.z * portalNormal.z;
-    const Vec3 virtualEyeDir = v3_sub(eyeDir, v3_scale(portalNormal, 2.0f * eyeDotN));
-
-    const Vec3 virtualTarget = v3_add(virtualCam, virtualEyeDir);
-
-    // Up vector: projetar o world-up no plano do portal
+    // Up vector: world-up estabilizado
     const Vec3 worldUp = {0.0f, 1.0f, 0.0f};
-    const float upDotN = portalNormal.y;
-    Vec3 projUp = v3_sub(worldUp, v3_scale(portalNormal, upDotN));
-    if (v3_len(projUp) < 0.01f) projUp = {0.0f, 0.0f, 1.0f};
-    else projUp = v3_normalize(projUp);
+    Vec3 projUp = worldUp;
+    // Se forward e worldUp forem quase paralelos, usar right como up
+    const float eyeUpDot = std::fabs(eyeDir.x * 0.0f + eyeDir.y * 1.0f + eyeDir.z * 0.0f);
+    if (eyeUpDot > 0.95f) projUp = {0.0f, 0.0f, 1.0f};
 
     // Salva viewport
     GLint vp[4];
@@ -365,11 +376,16 @@ void drawPortalBillboard(int idx, GLuint portalTex) {
     glPushMatrix();
     glTranslatef(center.x, center.y, center.z);
 
-    // Matriz de modelo: colunas = right, up, forward (base ortonormal orientada para a câmera)
+    // Matriz de modelo column-major do OpenGL:
+    // mat[0..3]  = coluna 0 (eixo X local = right)
+    // mat[4..7]  = coluna 1 (eixo Y local = up)
+    // mat[8..11] = coluna 2 (eixo Z local = forward, normal do disco)
+    // O disco é desenhado no plano XY local (normal = Z), então Z local
+    // deve apontar para a câmera para o billboard funcionar corretamente.
     const GLdouble mat[16] = {
-        static_cast<GLdouble>(right.x), static_cast<GLdouble>(up.x), static_cast<GLdouble>(forward.x), 0.0,
-        static_cast<GLdouble>(right.y), static_cast<GLdouble>(up.y), static_cast<GLdouble>(forward.y), 0.0,
-        static_cast<GLdouble>(right.z), static_cast<GLdouble>(up.z), static_cast<GLdouble>(forward.z), 0.0,
+        static_cast<GLdouble>(right.x),   static_cast<GLdouble>(right.y),   static_cast<GLdouble>(right.z),   0.0,
+        static_cast<GLdouble>(up.x),      static_cast<GLdouble>(up.y),      static_cast<GLdouble>(up.z),      0.0,
+        static_cast<GLdouble>(forward.x), static_cast<GLdouble>(forward.y), static_cast<GLdouble>(forward.z), 0.0,
         0.0, 0.0, 0.0, 1.0
     };
     glMultMatrixd(mat);
