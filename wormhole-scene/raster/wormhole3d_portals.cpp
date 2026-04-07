@@ -392,9 +392,10 @@ void drawPortalBillboard(int idx, GLuint portalTex) {
 
     glEnable(GL_TEXTURE_2D);
     glBindTexture(GL_TEXTURE_2D, portalTex);
-    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_DEPTH_TEST);   // portal é ocluído por objetos à sua frente
+    glDepthFunc(GL_LEQUAL);    // passa se o disco estiver na mesma profundidade ou mais próximo
     glDisable(GL_CULL_FACE);
-    glDepthMask(GL_FALSE);
+    glDepthMask(GL_TRUE);      // escreve no depth buffer para que nada atrás do disco o sobreponha
 
     static GLuint discListA = 0;
     static GLuint discListB = 0;
@@ -404,6 +405,7 @@ void drawPortalBillboard(int idx, GLuint portalTex) {
     }
     glCallList(discList);
 
+    glDepthFunc(GL_LESS);      // restaura função de profundidade padrão
     glDepthMask(GL_TRUE);
     glEnable(GL_DEPTH_TEST);
     glDisable(GL_TEXTURE_2D);
