@@ -21,7 +21,7 @@ void buildModeLabel(char* buf, const int cap) {
 
     if (!gUseRaycast) {
         if (p < end) {
-            *p++ = 'Raster';
+            *p++ = 'R';
         }
     } else {
         if (p < end) {
@@ -56,19 +56,30 @@ void drawOverlay() {
     glPushMatrix();
     glLoadIdentity();
 
-    const int hudY = gWindowHeight - 22;
+    // Define a margem esquerda fixa para todos os textos
+    const int leftX = 18;
 
+    // -------------------------------------------------------------
+    // BLOCO SUPERIOR ESQUERDO (Status e Infos)
+    // -------------------------------------------------------------
+    int currentTopY = gWindowHeight - 22; 
+    const int topSpacing = 16;
+
+    // Lambda que desenha e DESCE o cursor 'Y'
+    auto printTopLeft = [&](float r, float g, float b, const char* text) {
+        glColor3f(r, g, b);
+        drawText(leftX, currentTopY, text);
+        currentTopY -= topSpacing; 
+    };
+
+    // 1. FPS e Modo
     char modeBuf[32];
     buildModeLabel(modeBuf, static_cast<int>(sizeof(modeBuf)));
-    glColor3f(0.88f, 0.90f, 0.98f);
-    drawText(18, hudY, modeBuf);
+    char fpsBuf[64];
+    std::snprintf(fpsBuf, sizeof(fpsBuf), "FPS: %.1f  |  Modo: %s", gFpsDisplay, modeBuf);
+    printTopLeft(0.95f, 0.95f, 0.95f, fpsBuf);
 
-    char solBuf[40];
-    std::snprintf(solBuf, sizeof(solBuf), "Sol: %s  [ / ]  T",
-        gDayNightAuto ? "auto" : "manual");
-    glColor3f(0.72f, 0.78f, 0.95f);
-    drawText(18, hudY - 16, solBuf);
-
+    // 2. Tempo
     DayNightLighting dn{};
     computeDayNightLighting(dn);
     const int totalSec = gSceneTimeMs / 1000;
@@ -77,34 +88,39 @@ void drawOverlay() {
     const int mm = remH / 60;
     const int ss = remH % 60;
     const char* skyLabel = dn.skyDayFactor >= 0.42f ? "dia" : "noite";
-    const float nightFrac = 1.0f - dn.skyDayFactor;
-    const float nightPct = nightFrac * 100.0f;
+    
     char timeBuf[128];
-    std::snprintf(
-        timeBuf,
-        sizeof(timeBuf),
-        "Tempo %02d:%02d:%02d  %s   gDayNightCicleMs=%d",
-        hh,
-        mm,
-        ss,
-        skyLabel,
-        gDayNightEffectiveMs);
-    glColor3f(0.82f, 0.86f, 0.98f);
-    drawText(18, hudY - 32, timeBuf);
+    std::snprintf(timeBuf, sizeof(timeBuf), "Tempo %02d:%02d:%02d  %s   Ciclo=%d",
+        hh, mm, ss, skyLabel, gDayNightEffectiveMs);
+    printTopLeft(0.82f, 0.86f, 0.98f, timeBuf);
 
+    // 3. Sol
+    char solBuf[40];
+    std::snprintf(solBuf, sizeof(solBuf), "Sol: %s  [ / ]  T", gDayNightAuto ? "auto" : "manual");
+    printTopLeft(0.72f, 0.78f, 0.95f, solBuf);
+
+    // 4. Veículos
     char vehBuf[48];
-    std::snprintf(
-        vehBuf,
-        sizeof(vehBuf),
-        "Carros/barcos: %s  V",
-        gSceneVehiclesEnabled ? "on" : "off");
-    glColor3f(0.78f, 0.82f, 0.96f);
-    drawText(18, hudY - 48, vehBuf);
+    std::snprintf(vehBuf, sizeof(vehBuf), "Carros/barcos: %s  V", gSceneVehiclesEnabled ? "on" : "off");
+    printTopLeft(0.78f, 0.82f, 0.96f, vehBuf);
 
-    char fpsBuf[48];
-    std::snprintf(fpsBuf, sizeof(fpsBuf), "FPS: %.1f", gFpsDisplay);
-    glColor3f(0.55f, 0.95f, 0.55f);
-    drawText(gWindowWidth - 130, hudY, fpsBuf);
+
+    // -------------------------------------------------------------
+    // BLOCO INFERIOR ESQUERDO (Apenas Controles)
+    // -------------------------------------------------------------
+    int helpY = 14; // Posição Y inicial (perto do chão)
+    const int helpSpacing = 14;
+
+    // Lambda que desenha e SOBE o cursor 'Y'
+    auto printBottomLeft = [&](const char* text) {
+        glColor3f(0.92f, 0.92f, 0.92f);
+        drawText(leftX, helpY, text);
+        helpY += helpSpacing; 
+    };
+
+    printBottomLeft("WASD mover  |  Z/X descer/subir  |  Setas olhar");
+    printBottomLeft("1 Raster  |  2 CPU  |  3 GPU");
+    printBottomLeft("4 Bezier  |  R/F warp +/-");
 
     glPopMatrix();
     glMatrixMode(GL_PROJECTION);

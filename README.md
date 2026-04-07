@@ -139,14 +139,14 @@ Makefile               │ $(OBJS) antes de $(LDFLAGS) na regra de link    │ L
 | **WASD** | Mover câmera |
 | **Z / X** | Descer / subir câmera no eixo Y |
 | **Setas** | Olhar ao redor |
-| **C** | Ativar animação Bézier (câmera voa pelo wormhole) |
-| **R / F** | Aumentar / diminuir força do warp |
-| **Clique na UI** | Alternar modo e GPU ↔ CPU (quando disponível) |
-| **Q / Esc** | Fechar |
 | **1** | Rasterização |
 | **2** | Raycast com CPU |
 | **3** | Raycast com GPU |
-<!-- | **T** | Alternar Rasterização ↔ Raycast | -->
+| **4** | Alternar animação Bézier (câmera voa pelo wormhole) |
+| **R / F** | Aumentar / diminuir força do warp |
+| **[ / ]** | Diminuir / ajustar tempo manual do ciclo dia/noite |
+| **T** | Alternar ciclo dia/noite automático |
+| **V** | Alternar veículos na cena |
 
 ## Screenshots
 
