@@ -1,6 +1,7 @@
 #include "wormhole3d_raster.h"
 #include "wormhole3d_globals.h"
 #include "wormhole3d_simulation.h"
+#include "wormhole3d_portals.h"
 #include "scene_prefabs.h"
 
 #include <GL/glut.h>
@@ -75,7 +76,9 @@ void rasterScene() {
         glPopMatrix();
     }
 
-    // renderizando frontera de distorção do wormhole - wireframe
+    // renderizando frontera de distorção do wormhole - wireframe (por cima, sem escrever depth)
+    glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE);
     glColor3f(0.08f, 0.60f, 0.95f);
     glPushMatrix();
     glTranslatef(gWormhole.holeA.center.x, gWormhole.holeA.center.y, gWormhole.holeA.center.z);
@@ -85,15 +88,8 @@ void rasterScene() {
     glTranslatef(gWormhole.holeB.center.x, gWormhole.holeB.center.y, gWormhole.holeB.center.z);
     glutWireSphere(gWormhole.holeB.warpRadius, 24, 24);
     glPopMatrix();
+    glDepthMask(GL_TRUE);
 
-    // renderizando núcleos do wormhole - solid
-    glColor3f(0.22f, 0.86f, 1.0f);
-    glPushMatrix();
-    glTranslatef(gWormhole.holeA.center.x, gWormhole.holeA.center.y, gWormhole.holeA.center.z);
-    glutSolidSphere(gWormhole.holeA.coreRadius, 20, 16);
-    glPopMatrix();
-    glPushMatrix();
-    glTranslatef(gWormhole.holeB.center.x, gWormhole.holeB.center.y, gWormhole.holeB.center.z);
-    glutSolidSphere(gWormhole.holeB.coreRadius, 20, 16);
-    glPopMatrix();
+    // Portais: discos texturizados via FBO no centro dos wormholes
+    renderPortals();
 }
