@@ -13,7 +13,7 @@
 #include <iostream>
 
 #include <GL/glut.h>
-#include <GL/freeglut_ext.h>
+#include <GL/freeglut_ext.h> // freeglut_ext não disponível em alguns ambientes
 
 #include "scene_moving.h"
 
@@ -148,6 +148,20 @@ static void keyboard(const unsigned char key, const int x, const int y) {
             cameraApplyWormholeTeleportIfNeeded(prev, gCamera.position);
             break;
         }
+        case 'z':
+        case 'Z': {
+            const Vec3 prev = gCamera.position;
+            gCamera.position.y -= moveStep;
+            cameraApplyWormholeTeleportIfNeeded(prev, gCamera.position);
+            break;
+        }
+        case 'x':
+        case 'X': {
+            const Vec3 prev = gCamera.position;
+            gCamera.position.y += moveStep;
+            cameraApplyWormholeTeleportIfNeeded(prev, gCamera.position);
+            break;
+        }
         case 'r':
         case 'R':
             gWormhole.holeA.strength = clampf(gWormhole.holeA.strength + 0.02f, 0.02f, 1.2f);
@@ -236,14 +250,14 @@ int main(int argc, char** argv) {
     // inicializando a janela da app
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH );
-    glutInitContextVersion(2, 1);
+    glutInitContextVersion(2, 1); // não disponível em alguns ambientes
     glutInitWindowSize(gWindowWidth, gWindowHeight);
     glutInitWindowPosition(100, 60);
     glutCreateWindow("Raycast Wormhole Simulation 3D");
 
     // 0 - fps ilimitado, 
     // 1 - fps limitado ao buffer de swap (monitor refresh rate)
-    glutSwapInterval(0);
+    glutSwapInterval(0); // não disponível em alguns ambientes
 
     // carregando o buffer de raycast em gpu
     if (initGpuRaycast()) {

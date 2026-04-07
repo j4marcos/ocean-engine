@@ -32,7 +32,7 @@ TARGET := wormhole3d_demo
 all: $(TARGET)
 
 $(TARGET): $(OBJS)
-	$(CXX) $(LDFLAGS) -o $@ $(OBJS)
+	$(CXX) -o $@ $(OBJS) $(LDFLAGS)
 
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
