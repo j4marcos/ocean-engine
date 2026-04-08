@@ -107,6 +107,12 @@ void sceneBuild() {
     // Rua com buraco A (atrás da praia, +Z em relação à areia).
     gBoxes.push_back({{cx, slabCenterY() + 0.002f, streetCenterZ}, {islandHalfX, kSlabH, streetHalfZ}, asphalt});
 
+    // Calçada entre a rua e os prédios.
+    const float sidewalkHalfZ = 3.0f;
+    const RGBA sidewalkCol = {0.5f, 0.5f, 0.5f, 1.0f};
+    const float sidewalkCenterZ = streetCenterZ + streetHalfZ + sidewalkHalfZ;
+    gBoxes.push_back({{cx, slabCenterY() + 0.004f, streetCenterZ + streetHalfZ + sidewalkHalfZ}, {islandHalfX, kSlabH, sidewalkHalfZ}, sidewalkCol});
+
     // Montanhas atrás da fileira de prédios (+Z).
     const RGBA mtnRidge = {0.40f, 0.39f, 0.37f, 1.0f};
     const RGBA mtnPeak = {0.34f, 0.37f, 0.35f, 1.0f};
