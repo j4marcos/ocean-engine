@@ -15,8 +15,10 @@
 
 #include <GL/gl.h>
 #include <GL/glx.h>   // glXGetProcAddressARB
+#include <cstdlib>
 #include <cstdio>
 #include <cstring>
+#include <string>
 #include <vector>
 
 // ─── Definição das variáveis globais declaradas no .h ─────────────────────────
@@ -180,43 +182,62 @@ bool loadEXRNormalMap(const char* exrPath, const char* fallbackJpgPath,
 
 // ─── Carregamento completo da cena ────────────────────────────────────────────
 
-#define ASSETS_BASE \
-    "/home/antonio/Documentos/UNIVERSIDADE/REPOS/ocean-engine/wormhole-scene/assets"
+static const char* getAssetsBase() {
+    const char* env = std::getenv("WORMHOLE_ASSETS_DIR");
+    return (env && env[0]) ? env : "assets";
+}
+
+static std::string joinAssetPath(const char* relativePath) {
+    std::string path = getAssetsBase();
+    if (!path.empty() && path.back() != '/') {
+        path.push_back('/');
+    }
+    path += relativePath;
+    return path;
+}
 
 void loadSceneTextures() {
     printf("[Texture] Carregando texturas da cena...\n");
 
+    const std::string brickDiffuse = joinAssetPath("red_brick_03_1k.blend/textures/red_brick_03_diff_1k.jpg");
+    const std::string brickNormalExr = joinAssetPath("red_brick_03_1k.blend/textures/red_brick_03_nor_gl_1k.exr");
+    const std::string brickDisp = joinAssetPath("red_brick_03_1k.blend/textures/red_brick_03_disp_1k.png");
+    const std::string terrainColor = joinAssetPath("Terrain002_2K-JPG/Terrain002_2K_Color.jpg");
+    const std::string terrainDetail = joinAssetPath("Terrain002_2K-JPG/Terrain002_2K_Details.jpg");
+    const std::string rockyDiffuse = joinAssetPath("rocky_terrain_02_1k/textures/rocky_terrain_02_diff_1k.jpg");
+    const std::string rockyNormalExr = joinAssetPath("rocky_terrain_02_1k/textures/rocky_terrain_02_nor_gl_1k.exr");
+
     // ── Prédios (tijolos vermelhos) ──────────────────────────────────────────
     loadTextureLDR(
-        ASSETS_BASE "/red_brick_03_1k.blend/textures/red_brick_03_diff_1k.jpg",
+        brickDiffuse.c_str(),
         gTexBrickDiffuse, GL_REPEAT, true);
 
     loadEXRNormalMap(
-        ASSETS_BASE "/red_brick_03_1k.blend/textures/red_brick_03_nor_gl_1k.exr",
-        ASSETS_BASE "/red_brick_03_1k.blend/textures/red_brick_03_diff_1k.jpg",
+        brickNormalExr.c_str(),
+        brickDiffuse.c_str(),
         gTexBrickNormal);
 
     loadTextureLDR(
-        ASSETS_BASE "/red_brick_03_1k.blend/textures/red_brick_03_disp_1k.png",
+        brickDisp.c_str(),
         gTexBrickDisp, GL_REPEAT, true);
 
     // ── Montanhas / terreno (Terrain002 2K) ──────────────────────────────────
     loadTextureLDR(
-        ASSETS_BASE "/Terrain002_2K-JPG/Terrain002_2K_Color.jpg",
+        terrainColor.c_str(),
         gTexTerrainDiffuse, GL_REPEAT, true);
 
     loadTextureLDR(
-        ASSETS_BASE "/Terrain002_2K-JPG/Terrain002_2K_Details.jpg",
+        terrainDetail.c_str(),
         gTexTerrainDetail, GL_REPEAT, true);
 
     // ── Terreno pedregoso (rocky_terrain 1k) ─────────────────────────────────
     loadTextureLDR(
-        ASSETS_BASE "/rocky_terrain_02_1k/textures/rocky_terrain_02_diff_1k.jpg",
+        rockyDiffuse.c_str(),
         gTexRockyDiffuse, GL_REPEAT, true);
 
     loadEXRNormalMap(
-        ASSETS_BASE "/rocky_terrain_02_1k/textures/rocky_terrain_02_nor_gl_1k.exr",
-        ASSETS_BASE "/rocky_terrain_02_1k/textures/rocky_terrain_02_diff_1k.jpg",
+        rockyNormalExr.c_str(),
+        rockyDiffuse.c_str(),
         gTexRockyNormal);
 
     printf("[Texture] Carregamento concluido.\n");

@@ -4,7 +4,9 @@
 #include "stb_image.h"   // já tem STB_IMAGE_IMPLEMENTATION em scene_textures.cpp
 
 #include <cmath>
+#include <cstdlib>
 #include <cstdio>
+#include <string>
 
 // ─── Globals ──────────────────────────────────────────────────────────────────
 CpuTexture gCpuBrickDiffuse;
@@ -12,8 +14,19 @@ CpuTexture gCpuTerrainDiffuse;
 
 // ─── Carregamento ─────────────────────────────────────────────────────────────
 
-#define ASSETS_BASE \
-    "/home/antonio/Documentos/UNIVERSIDADE/REPOS/ocean-engine/wormhole-scene/assets"
+static const char* getAssetsBase() {
+    const char* env = std::getenv("WORMHOLE_ASSETS_DIR");
+    return (env && env[0]) ? env : "assets";
+}
+
+static std::string joinAssetPath(const char* relativePath) {
+    std::string path = getAssetsBase();
+    if (!path.empty() && path.back() != '/') {
+        path.push_back('/');
+    }
+    path += relativePath;
+    return path;
+}
 
 static bool loadCpuTex(const char* path, CpuTexture& out) {
     int w, h, ch;
@@ -33,11 +46,14 @@ static bool loadCpuTex(const char* path, CpuTexture& out) {
 }
 
 void loadCpuTextures() {
+    const std::string brickDiffuse = joinAssetPath("red_brick_03_1k.blend/textures/red_brick_03_diff_1k.jpg");
+    const std::string terrainColor = joinAssetPath("Terrain002_2K-JPG/Terrain002_2K_Color.jpg");
+
     loadCpuTex(
-        ASSETS_BASE "/red_brick_03_1k.blend/textures/red_brick_03_diff_1k.jpg",
+        brickDiffuse.c_str(),
         gCpuBrickDiffuse);
     loadCpuTex(
-        ASSETS_BASE "/Terrain002_2K-JPG/Terrain002_2K_Color.jpg",
+        terrainColor.c_str(),
         gCpuTerrainDiffuse);
 }
 

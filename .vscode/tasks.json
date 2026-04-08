@@ -11,6 +11,17 @@
         "reveal": "always",
         "panel": "shared"
       }
+    },
+    {
+      "label": "Wormhole: Compilar e Rodar (NVIDIA)",
+      "type": "shell",
+      "command": "make -C wormhole-scene run-nvidia",
+      "group": "build",
+      "problemMatcher": ["$gcc"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
     }
   ]
 }
