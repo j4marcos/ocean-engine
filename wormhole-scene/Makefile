@@ -32,9 +32,15 @@ OBJS := $(SRCS:.cpp=.o)
 
 TARGET := wormhole3d_demo
 
-.PHONY: all clean
+.PHONY: all run run-nvidia clean
 
 all: $(TARGET)
+
+run: $(TARGET)
+	./$(TARGET)
+
+run-nvidia: $(TARGET)
+	__NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia ./$(TARGET)
 
 $(TARGET): $(OBJS)
 	$(CXX) -o $@ $(OBJS) $(LDFLAGS)
