@@ -10,6 +10,39 @@
 #define GL_RGBA32F_ARB 0x8814
 #endif
 
+struct BVHNode {
+    Vec3 minBounds;
+    Vec3 maxBounds;
+    int leftChildIndex;
+    int objectCount;
+};
+
+void packBvhForGpu(const std::vector<BVHNode>& bvhNodes, std::vector<float>& outPixels, int& outWidth) {
+    // 2 pixeis (Texels) por Nó. Cada pixel tem 4 floats (RGBA).
+    const size_t floatsPerNode = 8; 
+    outPixels.assign(bvhNodes.size() * floatsPerNode, 0.0f);
+
+    for (size_t i = 0; i < bvhNodes.size(); ++i) {
+        const BVHNode& node = bvhNodes[i];
+        size_t offset = i * floatsPerNode;
+
+        // --- Pixel 0 (O Mínimo e o Índice do Filho) ---
+        outPixels[offset + 0] = node.minBounds.x; // Red
+        outPixels[offset + 1] = node.minBounds.y; // Green
+        outPixels[offset + 2] = node.minBounds.z; // Blue
+        outPixels[offset + 3] = static_cast<float>(node.leftChildIndex); // Alpha
+
+        // --- Pixel 1 (O Máximo e a Contagem de Objetos) ---
+        outPixels[offset + 4] = node.maxBounds.x; // Red
+        outPixels[offset + 5] = node.maxBounds.y; // Green
+        outPixels[offset + 6] = node.maxBounds.z; // Blue
+        outPixels[offset + 7] = static_cast<float>(node.objectCount); // Alpha
+    }
+    
+    // A largura da textura será o (número de nós * 2)
+    outWidth = static_cast<int>(bvhNodes.size()) * 2;
+}
+
 void packSceneObjectsForGpu(SceneGpuPacked& out) {
     const int ns = static_cast<int>(gSpheres.size());
     const int nb = static_cast<int>(gBoxes.size());
