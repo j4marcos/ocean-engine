@@ -24,8 +24,8 @@ static int gWindowWidth = 1000;
 static int gWindowHeight = 700;
 
 static Wormhole gWormhole = {
-	{{-0.45f, 0.08f}, 0.28f, 0.06f, 0.22f},
-	{{0.92f, -0.08f}, 0.28f, 0.06f, 0.22f}
+	{{-0.45f, 0.08f}, 1.5f, 0.1f, 0.22f},
+	{{0.92f, -0.08f}, 1.5f, 0.1f, 0.22f}
 };
 
 static Vec2 gRayStart = {-0.95f, -0.52f};
