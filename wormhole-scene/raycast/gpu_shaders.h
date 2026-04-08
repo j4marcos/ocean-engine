@@ -71,6 +71,88 @@ uniform sampler2D uTexTerrain;  // Terrain002_2K_Color.jpg   — montanhas
 uniform int uTexBrickLoaded;    // 1 se a textura foi carregada, 0 caso contrário
 uniform int uTexTerrainLoaded;
 
+uniform sampler2D uBvhTex;
+uniform float uBvhTexWidth; // A largura da textura que gerámos no Passo 1
+
+// Função para extrair um Nó da textura!
+void getBvhNode(float nodeIndex, out vec3 minB, out vec3 maxB, out float leftChild, out float objCount) {
+    // Onde estão os dois pixeis deste Nó na fita métrica?
+    float texelIndex0 = nodeIndex * 2.0;
+    float texelIndex1 = texelIndex0 + 1.0;
+
+    // Converte o índice num UV (entre 0.0 e 1.0). O +0.5 garante que lemos o meio exato do pixel.
+    vec2 uv0 = vec2((texelIndex0 + 0.5) / uBvhTexWidth, 0.5);
+    vec2 uv1 = vec2((texelIndex1 + 0.5) / uBvhTexWidth, 0.5);
+
+    // Lê os pixeis
+    vec4 data0 = texture2D(uBvhTex, uv0);
+    vec4 data1 = texture2D(uBvhTex, uv1);
+
+    // Reconstrói a variável
+    minB = data0.xyz;
+    leftChild = data0.w;
+    maxB = data1.xyz;
+    objCount = data1.w;
+}
+
+bool traverseBVH(vec3 rayOrigin, vec3 rayDir, out float closestT, out float hitBoxIndex) {
+    closestT = 999999.0;
+    hitBoxIndex = -1.0;
+    
+    vec3 invRayDir = 1.0 / rayDir; // Para evitar divisão lenta no loop
+    
+    // O NOSSO "STACK" (Pilha)
+    float stack[32]; // 32 níveis de profundidade é suficiente
+    int stackPtr = 0;
+    
+    // Começa pelo Nó Raiz
+    stack[0] = 0.0;
+    stackPtr = 1;
+
+    // CICLO SEGURO: A placa de vídeo não entra em pânico porque sabe que para no 150.
+    for(int step = 0; step < 150; ++step) {
+        if (stackPtr <= 0) break; // Se o stack estiver vazio, terminámos!
+
+        // Tirar o último nó do topo
+        stackPtr--;
+        float nodeIdx = stack[stackPtr];
+
+        vec3 minB, maxB;
+        float leftChild, objCount;
+        getBvhNode(nodeIdx, minB, maxB, leftChild, objCount);
+
+        // O raio bateu na "Caixa Grande" desta zona do mapa?
+        float hitNodeT = intersectAABB(rayOrigin, invRayDir, minB, maxB);
+        
+        // Se não bateu, ignora este ramo completamente
+        if (hitNodeT < 0.0 || hitNodeT >= closestT) continue;
+
+        if (objCount > 0.0) {
+            // CHEGÁMOS A UMA FOLHA!
+            // Aqui você faz o ciclo para testar os prédios que estão dentro deste Nó.
+            // (Lê a textura 'uSceneDataTex' que você já usa atualmente, a partir do 'leftChild')
+            
+            float startIdx = leftChild;
+            float endIdx = leftChild + objCount;
+            for(float obj = startIdx; obj < endIdx; obj += 1.0) {
+                // ... Seu código atual de interseção com a Caixa / Esfera ...
+                // Se bater e for o mais próximo, atualiza o closestT e o hitBoxIndex.
+            }
+        } 
+        else {
+            // É UM RAMO: Tem filhos! 
+            // Coloca os dois filhos na pilha para serem testados na próxima volta.
+            // Nota: Se a árvore for construída ordenadamente, o filho direito é o esquerdo + 1
+            stack[stackPtr] = leftChild;
+            stackPtr++;
+            stack[stackPtr] = leftChild + 1.0;
+            stackPtr++;
+        }
+    }
+
+    return hitBoxIndex != -1.0;
+}
+
 vec3 warpFieldFromHole(vec3 p, vec3 center, float radius, float strength) {
     vec3 toCenter = center - p;
     float d = length3(toCenter);
