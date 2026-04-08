@@ -95,6 +95,23 @@ void getBvhNode(float nodeIndex, out vec3 minB, out vec3 maxB, out float leftChi
     objCount = data1.w;
 }
 
+// Intersecao raio-AABB com invRayDir precomputado.
+// Retorna t de entrada (ou saida, se origem estiver dentro) e -1.0 se nao houver hit.
+float intersectAABB(vec3 rayOrigin, vec3 invRayDir, vec3 minB, vec3 maxB) {
+    vec3 t0 = (minB - rayOrigin) * invRayDir;
+    vec3 t1 = (maxB - rayOrigin) * invRayDir;
+    vec3 tMin3 = min(t0, t1);
+    vec3 tMax3 = max(t0, t1);
+
+    float tNear = max(max(tMin3.x, tMin3.y), tMin3.z);
+    float tFar = min(min(tMax3.x, tMax3.y), tMax3.z);
+
+    if (tFar < max(tNear, 0.0)) {
+        return -1.0;
+    }
+    return (tNear >= 0.0) ? tNear : tFar;
+}
+
 bool traverseBVH(vec3 rayOrigin, vec3 rayDir, out float closestT, out float hitBoxIndex) {
     closestT = 999999.0;
     hitBoxIndex = -1.0;
