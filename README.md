@@ -65,7 +65,7 @@ g++ wormhole-2d/warp2d.cpp -std=c++17 -O2 -Wall -Wextra -lGL -lGLU -lglut -o wor
 ### Dependências
 
 - **C++17**, **OpenGL 2.1**, **GLSL 1.20**
-- `libGL`, `libGLU`, `freeglut`, `libdl`
+- `libGL`, `libGLU`, `freeglut`, `libdl`, `zlib` (headers de desenvolvimento)
 - `stb_image` (inclusa) para carregamento de texturas
 
 ## Compatibilidade entre Distribuições Linux
@@ -75,19 +75,19 @@ g++ wormhole-2d/warp2d.cpp -std=c++17 -O2 -Wall -Wextra -lGL -lGLU -lglut -o wor
 **Ubuntu / Debian:**
 
 ```bash
-sudo apt install build-essential freeglut3-dev libglu1-mesa-dev
+sudo apt install build-essential freeglut3-dev libglu1-mesa-dev zlib1g-dev
 ```
 
 **Fedora:**
 
 ```bash
-sudo dnf install gcc-c++ freeglut-devel mesa-libGLU-devel
+sudo dnf install gcc-c++ freeglut-devel mesa-libGLU-devel zlib-devel
 ```
 
 **Arch Linux / Manjaro:**
 
 ```bash
-sudo pacman -S gcc freeglut glu
+sudo pacman -S gcc freeglut glu zlib
 ```
 
 ### Problemas conhecidos e adaptações
@@ -164,7 +164,7 @@ Makefile               │ $(OBJS) antes de $(LDFLAGS) na regra de link    │ L
 
 ## Discussão
 
-O principal desafio técnico foi refatorar o projeto — originalmente escrito com chamadas OpenGL quase puras em um único arquivo — para uma arquitetura modular que utiliza a GPU para acelerar o cálculo de raycasting via shaders GLSL. Isso exigiu separação de responsabilidades (simulação, renderização, UI, áudio), gerenciamento de uniformes no fragment shader e fallback por CPU quando recursos de GPU limitados não estão disponíveis.
+Isso exigiu separação de responsabilidades (simulação, renderização, UI, áudio), gerenciamento de uniformes no fragment shader e fallback por CPU quando recursos de GPU limitados não estão disponíveis.
 
 Durante o desenvolvimento, foram consolidados conceitos de física aplicados à simulação de wormholes (campo gravitacional com suavização gaussiana, teleporte entre bocas) e técnicas práticas de iluminação baseada em normais derivadas numericamente de SDFs. O projeto também serviu como aplicação real de Bézier para animação de câmera, mapeamento de texturas e gerenciamento de contexto OpenGL.
 
